@@ -7,6 +7,8 @@
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3.0-38B2AC.svg?logo=tailwind-css&logoColor=white)
 ![Gemini API](https://img.shields.io/badge/Google%20Gemini-API-8E75B2.svg?logo=google&logoColor=white)
 
+### 🚀 **[Play with Fatygoras Live Here](https://fatiguita.github.io/Fatygoras/)**
+
 **Fatygoras** is an advanced, interactive AI teaching environment designed to visualize complex concepts. Unlike standard chatbots, Fatygoras acts as a visual tutor, generating dynamic **SVG Whiteboards**, creating **Interactive Coding Playgrounds**, and structuring full **Syllabuses** on the fly.
 
 Built with the latest **Google Gemini Models** (3.0 Pro/Flash & 2.5), it offers a privacy-focused, "Bring Your Own Key" (BYOK) architecture where sessions live in your browser or your local filesystem.
