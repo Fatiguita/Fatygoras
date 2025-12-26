@@ -98,45 +98,75 @@ const App: React.FC = () => {
 
   // --- EFFECTS ---
 
+  // 1. Load Everything on Mount
   useEffect(() => {
+    // Load API Key (Always persistent if it was saved)
+    const savedKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
+    if (savedKey) setApiKey(savedKey);
+
+    // Load Settings (Theme, Model, Storage Preference)
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    let shouldLoadSession = false;
+
     if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
-      setSaveToLocal(parsed.saveToLocal);
-      if (parsed.saveToLocal) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setSaveToLocal(parsed.saveToLocal ?? false);
         setTheme(parsed.theme || DEFAULT_THEME);
         setModel(parsed.model || DEFAULT_MODEL);
-        if (parsed.apiKey) {
-           setApiKey(parsed.apiKey);
-        }
+        shouldLoadSession = parsed.saveToLocal;
+      } catch (e) {
+        console.error("Error parsing settings", e);
       }
     }
 
-    const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
-    if (savedSession && saveToLocal) {
-      const parsed = JSON.parse(savedSession);
-      setWhiteboards(parsed.whiteboards || []);
-      setChatHistory(parsed.chatHistory || []);
-      setPlaygrounds(parsed.playgrounds || []);
+    // Load Session (Only if preference says so)
+    if (shouldLoadSession) {
+      const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
+      if (savedSession) {
+        try {
+          const parsed = JSON.parse(savedSession);
+          setWhiteboards(parsed.whiteboards || []);
+          setChatHistory(parsed.chatHistory || []);
+          setPlaygrounds(parsed.playgrounds || []);
+        } catch (e) {
+          console.error("Error parsing session", e);
+        }
+      }
     }
   }, []);
 
+  // 2. Save API Key (Always)
+  useEffect(() => {
+    if (apiKey) {
+      localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
+    }
+  }, [apiKey]);
+
+  // 3. Save Settings (Always)
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({
+      saveToLocal,
+      theme,
+      model
+    }));
+  }, [saveToLocal, theme, model]);
+
+  // 4. Save Session (Conditional)
   useEffect(() => {
     if (saveToLocal) {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({
-        saveToLocal,
-        theme,
-        model,
-        apiKey
-      }));
       localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({
         whiteboards,
         chatHistory,
         playgrounds
       }));
+    } else {
+      // If toggled OFF, clear the session data from local storage to respect privacy
+      localStorage.removeItem(STORAGE_KEYS.SESSION);
     }
-  }, [saveToLocal, theme, model, apiKey, whiteboards, chatHistory, playgrounds]);
+  }, [saveToLocal, whiteboards, chatHistory, playgrounds]);
 
+  // Theme application
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark', 'chalkboard', 'blueprint');
@@ -358,8 +388,8 @@ const App: React.FC = () => {
         
         {/* Main Workspace */}
         <main className={`flex-1 overflow-y-auto w-full scroll-smooth flex flex-col ${playgroundPanelOpen ? 'hidden md:flex' : 'flex'}`}>
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50 backdrop-blur sticky top-0 z-10 overflow-x-auto no-scrollbar">
+            {/* Tabs - Fixed shrink-0 to prevent disappearance on mobile */}
+            <div className="flex-shrink-0 flex w-full border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50 backdrop-blur sticky top-0 z-10 overflow-x-auto no-scrollbar">
                 <button 
                     onClick={() => setActiveTab(Tab.CLASSROOM)}
                     className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.CLASSROOM ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}
@@ -374,7 +404,7 @@ const App: React.FC = () => {
                 </button>
             </div>
 
-            <div className="max-w-5xl mx-auto px-4 py-8 pb-32 w-full">
+            <div className="max-w-5xl mx-auto px-4 py-8 pb-32 w-full flex-grow">
                 
                 {activeTab === Tab.CLASSROOM && (
                     <>
