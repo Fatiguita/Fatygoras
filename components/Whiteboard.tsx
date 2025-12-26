@@ -468,14 +468,14 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                 {/* Content Layer with Transform */}
                 <div 
                     ref={svgWrapperRef}
-                    className="absolute inset-0 transition-transform duration-75 origin-top-left flex items-center justify-center w-full h-full"
+                    className="absolute inset-0 transition-transform duration-75 origin-top-left flex items-center justify-center w-full h-full will-change-transform"
                     style={{ 
                         transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                     }}
                 >
                     {/* SVG Layer */}
                     <div 
-                        className="pointer-events-none select-none w-full h-full flex items-center justify-center p-8"
+                        className="pointer-events-none select-none w-full h-full flex items-center justify-center p-2 sm:p-8 [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-full"
                         dangerouslySetInnerHTML={{ __html: svgContent }} 
                     />
                     
