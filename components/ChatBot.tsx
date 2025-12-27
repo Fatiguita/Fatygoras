@@ -96,7 +96,7 @@ const ChatBot: React.FC<ChatBotProps> = ({
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-none sm:rounded-t-2xl flex justify-between items-center">
           <div>
-            <h3 className="font-bold text-gray-800 dark:text-gray-100">Assistant</h3>
+            <h3 className="font-bold text-gray-800 dark:text-gray-100">Bruno</h3>
             <p className="text-xs text-gray-500">I see your whiteboard & playground.</p>
           </div>
           <button onClick={toggleOpen} className="sm:hidden p-2 text-gray-500">
