@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Button from './Button';
 
 interface WhiteboardProps {
@@ -12,6 +12,35 @@ interface WhiteboardProps {
 type Tool = 'pen' | 'box' | 'circle' | 'arrow' | 'text' | 'eraser';
 
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#000000'];
+
+// Helper to ensure SVGs scale correctly within the container
+const makeSvgResponsive = (svgString: string): string => {
+  let newSvg = svgString;
+
+  // 1. Ensure preserveAspectRatio is set to 'xMidYMid meet' (contain) to prevent cropping
+  if (!/preserveAspectRatio/i.test(newSvg)) {
+    newSvg = newSvg.replace(/<svg/i, '<svg preserveAspectRatio="xMidYMid meet"');
+  }
+
+  // 2. If viewBox is missing but width/height are present, construct a viewBox
+  // This fixes the "cut" issue when models generate fixed-size SVGs without scaling logic
+  if (!/viewBox/i.test(newSvg)) {
+    const widthMatch = newSvg.match(/width=["']?(\d+(\.\d+)?)["']?/i);
+    const heightMatch = newSvg.match(/height=["']?(\d+(\.\d+)?)["']?/i);
+    
+    if (widthMatch && heightMatch) {
+      const w = widthMatch[1];
+      const h = heightMatch[1];
+      // Add viewBox and remove fixed width/height to allow CSS scaling
+      newSvg = newSvg
+        .replace(/<svg/i, `<svg viewBox="0 0 ${w} ${h}"`)
+        .replace(/width=["']?(\d+(\.\d+)?)["']?/i, '')
+        .replace(/height=["']?(\d+(\.\d+)?)["']?/i, '');
+    }
+  }
+
+  return newSvg;
+};
 
 const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic, onRefine, isRefining }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -41,6 +70,9 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
 
+  // Memoize processed SVG to avoid re-parsing on every render
+  const processedSvg = useMemo(() => makeSvgResponsive(svgContent), [svgContent]);
+
   // Fullscreen toggle (CSS only)
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
@@ -49,6 +81,18 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+  };
+
+  const handleDownloadSvg = () => {
+    const blob = new Blob([processedSvg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${topic.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Resize Canvas logic
@@ -421,6 +465,10 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                         </>
                     )}
 
+                    <button onClick={handleDownloadSvg} className="p-2 sm:p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded mr-1" title="Download SVG">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    </button>
+
                     <button onClick={handleResetView} className="p-2 sm:p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Reset View">
                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     </button>
@@ -475,8 +523,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                 >
                     {/* SVG Layer */}
                     <div 
-                        className="pointer-events-none select-none w-full h-full flex items-center justify-center p-2 sm:p-8 [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-full"
-                        dangerouslySetInnerHTML={{ __html: svgContent }} 
+                        className="pointer-events-none select-none w-full h-full flex items-center justify-center p-2 sm:p-8 [&>svg]:w-full [&>svg]:h-full"
+                        dangerouslySetInnerHTML={{ __html: processedSvg }} 
                     />
                     
                     {/* Canvas Annotation Layer */}
