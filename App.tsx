@@ -60,7 +60,7 @@ const App: React.FC = () => {
 
   // Syllabus State
   const [syllabus, setSyllabus] = useState<SyllabusData | null>(null);
-  const [syllabusHistory, setSyllabusHistory] = useState<Record<string, Record<string, SyllabusData>>>({});
+  const [syllabusGallery, setSyllabusGallery] = useState<SyllabusData[]>([]);
 
   // Loading States
   const [isGenerating, setIsGenerating] = useState(false);
@@ -104,6 +104,16 @@ const App: React.FC = () => {
     const savedKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
     if (savedKey) setApiKey(savedKey);
 
+    // Load Syllabus Gallery (Always persistent)
+    const savedGallery = localStorage.getItem(STORAGE_KEYS.SYLLABUS_GALLERY);
+    if (savedGallery) {
+      try {
+        setSyllabusGallery(JSON.parse(savedGallery));
+      } catch (e) {
+        console.error("Failed to load syllabus gallery", e);
+      }
+    }
+
     // Load Settings (Theme, Model, Storage Preference)
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     let shouldLoadSession = false;
@@ -143,7 +153,12 @@ const App: React.FC = () => {
     }
   }, [apiKey]);
 
-  // 3. Save Settings (Always)
+  // 3. Save Syllabus Gallery (Always)
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SYLLABUS_GALLERY, JSON.stringify(syllabusGallery));
+  }, [syllabusGallery]);
+
+  // 4. Save Settings (Always)
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({
       saveToLocal,
@@ -152,7 +167,7 @@ const App: React.FC = () => {
     }));
   }, [saveToLocal, theme, model]);
 
-  // 4. Save Session (Conditional)
+  // 5. Save Session (Conditional)
   useEffect(() => {
     if (saveToLocal) {
       localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({
@@ -311,33 +326,43 @@ const App: React.FC = () => {
       setIsGeneratingSyllabus(true);
       
       const normalizedTopic = topic.trim().toLowerCase();
-      const previousLevels = syllabusHistory[normalizedTopic];
+      
+      // Find previous context from our saved gallery
+      const relatedSyllabi = syllabusGallery.filter(s => 
+          s.topic.toLowerCase().includes(normalizedTopic) || normalizedTopic.includes(s.topic.toLowerCase())
+      );
       
       let context = '';
-      if (previousLevels) {
-          context = `Previous generated levels for "${topic}":\n`;
-          Object.entries(previousLevels).forEach(([lvl, data]) => {
-              context += `- Level ${lvl}: ${data.description}\n`;
-              context += `  Concepts: ${data.concepts.join(', ')}\n`;
+      if (relatedSyllabi.length > 0) {
+          context = `Existing courses in database for similar topics:\n`;
+          relatedSyllabi.forEach((s) => {
+              context += `- Level ${s.level} (${s.topic}): ${s.description}\n`;
+              context += `  Concepts covered: ${s.concepts.join(', ')}\n`;
           });
-          context += `\nEnsure the new syllabus for Level "${level}" is distinct and strictly follows the progression from the existing levels above.`;
+          context += `\nEnsure the new syllabus for Level "${level}" is distinct, progressive, and complementary to the above.`;
       }
 
       try {
           const result = await generateSyllabus(apiKey, topic, level, model, addLog, context);
-          setSyllabus(result);
+          const newSyllabus: SyllabusData = {
+              ...result,
+              id: Date.now().toString(),
+              timestamp: Date.now()
+          };
           
-          setSyllabusHistory(prev => ({
-              ...prev,
-              [normalizedTopic]: {
-                  ...(prev[normalizedTopic] || {}),
-                  [level]: result
-              }
-          }));
+          setSyllabus(newSyllabus);
+          setSyllabusGallery(prev => [newSyllabus, ...prev]);
       } catch (e) {
           console.error(e);
       } finally {
           setIsGeneratingSyllabus(false);
+      }
+  };
+
+  const handleDeleteSyllabus = (id: string) => {
+      if (confirm("Remove this course from your gallery?")) {
+          setSyllabusGallery(prev => prev.filter(s => s.id !== id));
+          if (syllabus?.id === id) setSyllabus(null);
       }
   };
 
@@ -460,9 +485,12 @@ const App: React.FC = () => {
                 {activeTab === Tab.SYLLABUS && (
                     <Syllabus 
                         data={syllabus} 
+                        gallery={syllabusGallery}
                         onGenerate={handleGenerateSyllabus} 
                         isLoading={isGeneratingSyllabus}
                         onImportLevel={(topics) => handleGenerate(topics.join(", "))}
+                        onDelete={handleDeleteSyllabus}
+                        onSelect={setSyllabus}
                     />
                 )}
             </div>

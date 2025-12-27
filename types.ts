@@ -92,6 +92,8 @@ export interface SavedSessionMetadata {
 export type CourseLevel = 'Introduction' | 'Beginner' | 'Intermediate' | 'Advanced' | 'Master';
 
 export interface SyllabusData {
+  id?: string;
+  timestamp?: number;
   level: CourseLevel;
   topic: string;
   description: string;

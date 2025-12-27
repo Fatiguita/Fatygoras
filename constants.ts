@@ -26,4 +26,5 @@ export const STORAGE_KEYS = {
   SETTINGS: 'ai_teacher_settings',
   LIBRARY_INDEX: 'ai_teacher_library_index',
   LIBRARY_DATA_PREFIX: 'ai_teacher_lib_data_',
+  SYLLABUS_GALLERY: 'ai_teacher_syllabus_gallery',
 };
