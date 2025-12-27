@@ -56,7 +56,7 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    The SVG should be clean, use a hand-drawn or schematic style.
    Return the RAW SVG code in the 'svg' field (do NOT use markdown backticks inside the JSON field).
 2. **Size hierarchy (INSIDE SVG)**
-   Canvas (viewbox default 1920x1080) will be as big as the amount of zones in canvas range of zones 2 - 4.
+   Canvas (viewbox default 1920x1080 horizontal orientation) will be as big as the amount of zones in canvas range of zones 2 - 4.
    As mentioned whiteboard canvas will be divided in zones if invisible better.
    Use colors and graphs constantly
 3. **Tone**:
