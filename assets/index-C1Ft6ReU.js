@@ -314,7 +314,7 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    Per zones, the text if included will have size hierarchy. Tille, sub-title, content ect. all of them wrapped to not violate their widget ot zone borders.
    About wrapped text, make sure if text needs to be included in only one line it is omitted. but avoid not wrapped text.
 3. **Tone**:
-   Educational, clear, and structured. Use Marker-like font
+   Educational, clear, and structured. Use Permanent marker font with curv-ish style
 `,OC=`
 You are a creative coding assistant. Your task is to generate a self-contained HTML/JS/CSS snippet that serves as an interactive "Practice Playground" for a student.
 
