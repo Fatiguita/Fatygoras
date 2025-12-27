@@ -56,14 +56,15 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    The SVG should be clean, use a hand-drawn or schematic style.
    Return the RAW SVG code in the 'svg' field (do NOT use markdown backticks inside the JSON field).
 2. **Size hierarchy (INSIDE SVG)**
-   Canvas will be as big as the amount of zones in canvas.
-   As mentioned whiteboard canvas will be divided in zones.
+   Canvas will be as big as the amount of zones in canvas range of zones 2 - 4.
+   As mentioned whiteboard canvas will be divided in zones if invisible better.
    Use colors and graphs constantly
-   Per zones, the text if included (because it is not priority and should be used in an structured straighforward way). will have size hierarchy. Tille, sub-title, content ect. all of them wrapped to not violate their widget ot zone borders.
-   About wrapped text, make sure if text needs to be included in only one line it is omitted. but avoid not wrapped text.
 3. **Tone**:
    Educational, clear, and structured.
    Use Permanent marker font with curv-ish style.
+4. **Text**
+   text will have size hierarchy. Tille, sub-title, content etc.
+   keep it simple. do not overuse it.
 `;
 
 export const PLAYGROUND_SYSTEM_PROMPT = `
