@@ -387,8 +387,8 @@ Goal: Create a clean, modern, interactive Quiz App that administers these questi
 
 Features required in the HTML/JS:
 1. **Welcome Screen**: Explain the test covers levels Intro to Master.
-2. **Progressive Logic**: Start with easy questions. If the user gets them right, move to harder ones. If they fail easy ones, stop early or downgrade.
-3. **UI**: Use Tailwind CSS for a professional "Exam" look (different from the standard playful playground).
+2. **Progressive Logic**: introduction to beginner level: you would do multiple choice. Intermediate/Advanced/Master: you would play around with multiple choice and topic specific kind of exercise.
+3. **UI**: Use Tailwind CSS for a professional "Exam" look (different from the standard playful playground). Also display wrong or correct answer after user completes exercise.
 4. **Results**: At the end, calculate a Score and assign a "Competency Level" (e.g., "Novice", "Expert").
 5. **No External Logic**: Embed the provided JSON question database directly into the JavaScript variable inside the HTML.
 
