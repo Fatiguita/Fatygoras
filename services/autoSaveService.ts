@@ -1,5 +1,51 @@
 import { AUTO_SAVE_TAG } from "../constants";
 
+// --- IndexedDB Helper for Handles ---
+const DB_NAME = 'FatygorasDB';
+const STORE_NAME = 'settings';
+
+const openDB = () => {
+    return new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e: any) => {
+            e.target.result.createObjectStore(STORE_NAME);
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const storeDirectoryHandle = async (handle: any) => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).put(handle, 'autosave_handle');
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (e) {
+        console.error("Failed to store handle in DB", e);
+    }
+};
+
+export const getStoredDirectoryHandle = async () => {
+    try {
+        const db = await openDB();
+        return new Promise<any>((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const req = tx.objectStore(STORE_NAME).get('autosave_handle');
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    } catch (e) {
+        console.error("Failed to retrieve handle from DB", e);
+        return null;
+    }
+};
+
+// --- Script Generation ---
+
 export const generateCleanupScript = () => {
     const script = `
 const fs = require('fs');
@@ -128,7 +174,7 @@ It keeps the last 2 instances of every unique session and deletes older ones to 
 2. Navigate to the folder: \`cd /path/to/your/save/folder\`
 3. Run: \`node cleanup_sessions.js\`
 4. **To run automatically:** Add a cron job (\`crontab -e\`) to run this script periodically.
-   Example: \`*/2 * * * * cd /path/to/js/file /usr/bin/node cleanup_sessions.js\` (Runs every 2 mins).
+   Example: \`*/10 * * * * /usr/bin/node /path/to/cleanup_sessions.js\` (Runs every 10 mins).
 `;
 };
 

@@ -34,7 +34,7 @@ import {
   generateLevelTestPlayground,
   analyzeImageWithContext 
 } from './services/geminiService';
-import { saveToDirectory } from './services/autoSaveService';
+import { saveToDirectory, storeDirectoryHandle, getStoredDirectoryHandle } from './services/autoSaveService';
 
 enum Tab {
   CLASSROOM = 'classroom',
@@ -64,6 +64,7 @@ const App: React.FC = () => {
   const [autoSaveName, setAutoSaveName] = useState(() => settings.autoSaveName || 'MySession');
   const [autoSaveInterval, setAutoSaveInterval] = useState<number>(() => settings.autoSaveInterval || 5);
   const [autoSaveHandle, setAutoSaveHandle] = useState<any>(null);
+  const [pendingResumeHandle, setPendingResumeHandle] = useState<any>(null); // Handle recovered from DB needing permission
   const autoSaveTimerRef = useRef<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>(Tab.CLASSROOM);
@@ -189,7 +190,45 @@ const App: React.FC = () => {
       return () => {
           if (autoSaveTimerRef.current) window.clearInterval(autoSaveTimerRef.current);
       };
-  }, [autoSaveHandle, autoSaveInterval]); 
+  }, [autoSaveHandle, autoSaveInterval]);
+
+  // Restore Auto Save Handle from IndexedDB
+  useEffect(() => {
+      const restoreAutoSaveHandle = async () => {
+          try {
+              const handle = await getStoredDirectoryHandle();
+              if (handle) {
+                  // Check existing permission
+                  const permission = await handle.queryPermission({ mode: 'readwrite' });
+                  if (permission === 'granted') {
+                      setAutoSaveHandle(handle);
+                      addLog({ type: 'info', source: 'AutoSave', summary: 'Restored previous folder connection automatically' });
+                  } else {
+                      // Permission needs to be re-requested (requires user gesture)
+                      setPendingResumeHandle(handle);
+                      addLog({ type: 'info', source: 'AutoSave', summary: 'Previous folder found. Waiting for resume permission.' });
+                  }
+              }
+          } catch (e) {
+              console.error("Error restoring handle", e);
+          }
+      };
+      restoreAutoSaveHandle();
+  }, []);
+
+  const handleResumeAutoSave = async () => {
+      if (!pendingResumeHandle) return;
+      try {
+          const permission = await pendingResumeHandle.requestPermission({ mode: 'readwrite' });
+          if (permission === 'granted') {
+              setAutoSaveHandle(pendingResumeHandle);
+              setPendingResumeHandle(null);
+              addLog({ type: 'info', source: 'AutoSave', summary: 'Auto-save resumed successfully' });
+          }
+      } catch (e) {
+          console.error("Permission request failed", e);
+      }
+  };
 
   // --- EFFECTS ---
 
@@ -523,6 +562,7 @@ const App: React.FC = () => {
         playgroundOpen={playgroundPanelOpen}
         togglePlayground={() => setPlaygroundPanelOpen(!playgroundPanelOpen)}
         hasPlaygroundCode={playgrounds.length > 0}
+        onResumeAutoSave={pendingResumeHandle ? handleResumeAutoSave : undefined}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -617,7 +657,9 @@ const App: React.FC = () => {
           setModel(data.model);
         }}
         autoSaveActive={!!autoSaveHandle}
-        onConfigureAutoSave={(handle, interval, name) => {
+        onConfigureAutoSave={async (handle, interval, name) => {
+            // Intercept to store in DB
+            await storeDirectoryHandle(handle);
             setAutoSaveHandle(handle);
             setAutoSaveInterval(interval);
             setAutoSaveName(name);

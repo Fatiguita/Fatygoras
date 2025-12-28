@@ -20,6 +20,7 @@ interface HeaderProps {
   playgroundOpen: boolean;
   togglePlayground: () => void;
   hasPlaygroundCode: boolean;
+  onResumeAutoSave?: () => void; // New prop for resuming auto-save
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -32,7 +33,8 @@ const Header: React.FC<HeaderProps> = ({
   onOpenSessionManager,
   playgroundOpen,
   togglePlayground,
-  hasPlaygroundCode
+  hasPlaygroundCode,
+  onResumeAutoSave
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showApiKey, setShowApiKey] = useState(!apiKey);
@@ -65,6 +67,19 @@ const Header: React.FC<HeaderProps> = ({
                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
                    <span className="hidden sm:inline">Playground</span>
                 </Button>
+              )}
+              
+              {/* Auto-Save Resume Button */}
+              {onResumeAutoSave && (
+                  <Button 
+                    size="sm" 
+                    onClick={onResumeAutoSave} 
+                    className="bg-orange-500 hover:bg-orange-600 text-white border-none animate-pulse"
+                    title="Reconnect to Auto-Save Folder"
+                  >
+                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    Resume Auto-Save
+                  </Button>
               )}
 
               {/* API Key Toggle */}
@@ -140,6 +155,12 @@ const Header: React.FC<HeaderProps> = ({
                 </button>
              </div>
              
+             {onResumeAutoSave && (
+                  <Button size="sm" onClick={onResumeAutoSave} className="w-full bg-orange-500 text-white">
+                    Resume Auto-Save
+                  </Button>
+             )}
+
              <Select 
                 label="AI Model"
                 options={MODEL_OPTIONS} 
