@@ -115,9 +115,9 @@ Output: A JSON Object containing an array of questions.
 
 Rules:
 1. **Introduction/Beginner**: Generate purely Multiple Choice Questions (MCQ).
-2. **Intermediate/Advanced/Master**: Generate a mix of MCQ and "Problem Solving" scenarios (text-based logic puzzles).
+2. **Intermediate/Advanced/Master**: Generate a mix of MCQ and "Problem Solving" scenarios (text-based logic puzzles), also can include some suitable topic specific exercise.
 3. The output must be strictly JSON.
-4. 8-12 items per level.
+4. 8-12 exercises per level.
 
 Structure:
 {
