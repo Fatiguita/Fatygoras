@@ -128,7 +128,7 @@ It keeps the last 2 instances of every unique session and deletes older ones to 
 2. Navigate to the folder: \`cd /path/to/your/save/folder\`
 3. Run: \`node cleanup_sessions.js\`
 4. **To run automatically:** Add a cron job (\`crontab -e\`) to run this script periodically.
-   Example: \`*/10 * * * * /usr/bin/node /path/to/cleanup_sessions.js\` (Runs every 10 mins).
+   Example: \`*/2 * * * * cd /path/to/js/file /usr/bin/node cleanup_sessions.js\` (Runs every 2 mins).
 `;
 };
 
