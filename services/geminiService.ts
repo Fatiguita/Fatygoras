@@ -4,9 +4,11 @@ import {
   ANALYSIS_SYSTEM_PROMPT, 
   BATCH_TEACHER_SYSTEM_PROMPT, 
   PLAYGROUND_SYSTEM_PROMPT, 
-  CHATBOT_SYSTEM_PROMPT,
+  CHATBOT_SYSTEM_PROMPT, 
   SYLLABUS_SYSTEM_PROMPT,
-  VISION_SYSTEM_PROMPT
+  VISION_SYSTEM_PROMPT,
+  QUIZ_DB_SYSTEM_PROMPT,
+  LEVEL_TEST_PLAYGROUND_PROMPT
 } from './prompts';
 
 const getClient = (apiKey: string) => new GoogleGenAI({ apiKey });
@@ -89,7 +91,7 @@ export const generateWhiteboardBatch = async (
     type: 'request', 
     source: 'generateWhiteboardBatch', 
     summary: `Generating batch for ${topics.length} topics`, 
-    details: { model: modelId, topics, hasContext: !!previousContext } 
+    details: { model: modelId, topics, promptContent: prompt } 
   });
 
   try {
@@ -120,7 +122,10 @@ export const generateWhiteboardBatch = async (
       type: 'response', 
       source: 'generateWhiteboardBatch', 
       summary: 'Received batch response', 
-      details: { length: fullText.length } 
+      details: { 
+          fullText: fullText.substring(0, 500) + "... (truncated)", // Truncate for UI performance but show start
+          itemsCount: JSON.parse(fullText).length 
+      } 
     });
     
     return JSON.parse(fullText);
@@ -156,7 +161,7 @@ export const generatePlayground = async (apiKey: string, topic: string, modelId:
       type: 'response', 
       source: 'generatePlayground', 
       summary: 'Received playground code', 
-      details: { length: fullText.length } 
+      details: { fullText: fullText } 
     });
 
     const htmlMatch = fullText.match(/```html\n([\s\S]*?)\n```/);
@@ -166,7 +171,8 @@ export const generatePlayground = async (apiKey: string, topic: string, modelId:
       id: Date.now().toString(),
       html,
       description: `Playground: ${topic}`,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      type: 'practice'
     };
   } catch (error) {
     if (logger) logger({ type: 'error', source: 'generatePlayground', summary: 'Playground generation failed', details: error });
@@ -184,7 +190,7 @@ export const generateSyllabus = async (
 ): Promise<SyllabusData> => {
   const ai = getClient(apiKey);
   
-  if (logger) logger({ type: 'request', source: 'generateSyllabus', summary: `Generating syllabus for ${topic} at ${level}` });
+  if (logger) logger({ type: 'request', source: 'generateSyllabus', summary: `Generating syllabus for ${topic} at ${level}`, details: { context } });
 
   try {
     const prompt = `Create a syllabus for: ${topic}. Level: ${level}.${context ? `\n\nCONTEXT FROM OTHER LEVELS:\n${context}` : ''}`;
@@ -199,13 +205,92 @@ export const generateSyllabus = async (
     });
 
     const text = response.text || "{}";
-    if (logger) logger({ type: 'response', source: 'generateSyllabus', summary: 'Syllabus generated' });
+    if (logger) logger({ type: 'response', source: 'generateSyllabus', summary: 'Syllabus generated', details: { text } });
     
     return JSON.parse(text) as SyllabusData;
   } catch (error) {
     console.error("Syllabus generation failed", error);
     throw error;
   }
+};
+
+export const generateQuizDatabase = async (
+    apiKey: string,
+    topic: string,
+    syllabiContext: string,
+    modelId: string,
+    logger?: Logger
+): Promise<string> => {
+    const ai = getClient(apiKey);
+
+    if (logger) logger({ 
+        type: 'request', 
+        source: 'generateQuizDatabase', 
+        summary: `Generating comprehensive quiz DB for ${topic}`,
+        details: { syllabiContextLength: syllabiContext.length }
+    });
+
+    try {
+        const response = await ai.models.generateContent({
+            model: modelId,
+            contents: `Generate a quiz database for topic: ${topic}. \n\nSYLLABI CONTEXT:\n${syllabiContext}`,
+            config: {
+                systemInstruction: QUIZ_DB_SYSTEM_PROMPT,
+                responseMimeType: "application/json"
+            }
+        });
+        
+        const text = response.text || "{}";
+        if (logger) logger({ type: 'response', source: 'generateQuizDatabase', summary: 'Quiz DB generated', details: { text } });
+        return text;
+    } catch (error) {
+        if (logger) logger({ type: 'error', source: 'generateQuizDatabase', summary: 'Quiz DB gen failed', details: error });
+        throw error;
+    }
+};
+
+export const generateLevelTestPlayground = async (
+    apiKey: string,
+    topic: string,
+    quizJson: string,
+    modelId: string,
+    logger?: Logger
+): Promise<Omit<PlaygroundCode, 'status'>> => {
+    const ai = getClient(apiKey);
+
+    if (logger) logger({ 
+        type: 'request', 
+        source: 'generateLevelTestPlayground', 
+        summary: `Generating Level Test App`,
+        details: { quizJsonLength: quizJson.length }
+    });
+
+    try {
+        const response = await ai.models.generateContent({
+            model: modelId,
+            contents: `Create a Level Test App for ${topic}. \n\nHere is the question database to embed:\n${quizJson}`,
+            config: {
+                systemInstruction: LEVEL_TEST_PLAYGROUND_PROMPT
+            }
+        });
+
+        const fullText = response.text || "";
+        const htmlMatch = fullText.match(/```html\n([\s\S]*?)\n```/);
+        const html = htmlMatch ? htmlMatch[1] : "<h1>Error generating test</h1>";
+        
+        if (logger) logger({ type: 'response', source: 'generateLevelTestPlayground', summary: 'Test Playground generated', details: { fullText } });
+
+        return {
+            id: Date.now().toString(),
+            html,
+            description: `Level Test: ${topic}`,
+            timestamp: Date.now(),
+            type: 'test'
+        };
+    } catch (error) {
+        if (logger) logger({ type: 'error', source: 'generateLevelTestPlayground', summary: 'Test Playground gen failed', details: error });
+        throw error;
+    }
 };
 
 export const analyzeImageWithContext = async (
@@ -236,8 +321,9 @@ export const analyzeImageWithContext = async (
       }
     });
 
-    if (logger) logger({ type: 'response', source: 'analyzeImageWithContext', summary: 'Received analysis' });
-    return response.text || "I couldn't analyze the image.";
+    const text = response.text || "I couldn't analyze the image.";
+    if (logger) logger({ type: 'response', source: 'analyzeImageWithContext', summary: 'Received analysis', details: { text } });
+    return text;
   } catch (error) {
     console.error("Image analysis failed", error);
     throw error;
@@ -278,7 +364,7 @@ export const sendChatMessage = async (
     const result = await chat.sendMessage({ message });
     const text = result.text || "";
 
-    if (logger) logger({ type: 'response', source: 'sendChatMessage', summary: 'Received chat response' });
+    if (logger) logger({ type: 'response', source: 'sendChatMessage', summary: 'Received chat response', details: { text } });
 
     return text;
   } catch (error) {

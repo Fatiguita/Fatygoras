@@ -141,12 +141,18 @@ const extractSessionFromFolder = async (zip: JSZip, rootPath: string): Promise<I
         manifest.playgrounds.map(async (pgItem) => {
             const fullPath = rootPath + pgItem.filePath;
             const htmlFile = zip.file(fullPath);
+            // Heuristic to determine type since it wasn't saved in older manifests
+            // Default to 'practice' unless description suggests otherwise
+            const isTest = pgItem.description.toLowerCase().includes('level test') || 
+                           pgItem.description.toLowerCase().startsWith('test:');
+            
             return {
                 id: pgItem.id,
                 description: pgItem.description,
                 timestamp: pgItem.timestamp || Date.now(),
                 html: htmlFile ? await htmlFile.async("string") : "",
-                status: 'ready'
+                status: 'ready',
+                type: isTest ? 'test' : 'practice'
             };
         })
     );
@@ -161,7 +167,8 @@ const extractSessionFromFolder = async (zip: JSZip, rootPath: string): Promise<I
              description: pg.description,
              timestamp: Date.now(),
              html: await htmlFile.async("string"),
-             status: 'ready'
+             status: 'ready',
+             type: 'practice'
          });
      }
   }

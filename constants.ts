@@ -1,8 +1,9 @@
-
 import { AppTheme, GeminiModel } from './types';
 
 export const DEFAULT_THEME = AppTheme.DARK;
 export const DEFAULT_MODEL = GeminiModel.GEMINI_3_PRO;
+
+export const AUTO_SAVE_TAG = 'FATY_V4_AUTO';
 
 export const MODEL_OPTIONS = [
   { label: 'Gemini 3.0 Pro Preview', value: GeminiModel.GEMINI_3_PRO },
@@ -27,4 +28,6 @@ export const STORAGE_KEYS = {
   LIBRARY_INDEX: 'ai_teacher_library_index',
   LIBRARY_DATA_PREFIX: 'ai_teacher_lib_data_',
   SYLLABUS_GALLERY: 'ai_teacher_syllabus_gallery',
+  TEST_RESULTS: 'ai_teacher_test_results',
+  AUTO_SAVE_CONFIG: 'ai_teacher_auto_save_config',
 };

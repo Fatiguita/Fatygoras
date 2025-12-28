@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import Button from './Button';
 import { exportCollectionToZip, importLibraryFromZip, downloadBlob } from '../services/sessionService';
+import { generateCleanupScript, generateCleanupReadme } from '../services/autoSaveService';
 import { WhiteboardData, ChatMessage, PlaygroundCode, AppTheme, GeminiModel, SavedSessionMetadata } from '../types';
 import { STORAGE_KEYS } from '../constants';
 
@@ -20,6 +21,12 @@ interface SessionManagerProps {
     theme: AppTheme;
     model: GeminiModel;
   }) => void;
+  // Auto Save Props
+  onConfigureAutoSave: (handle: any, interval: number, sessionName: string) => void;
+  onUpdateAutoSaveSettings: (interval: number, sessionName: string) => void;
+  autoSaveActive: boolean;
+  initialAutoSaveName: string;
+  initialAutoSaveInterval: number;
 }
 
 const SessionManager: React.FC<SessionManagerProps> = ({
@@ -30,7 +37,12 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   playgrounds,
   theme,
   model,
-  onImport
+  onImport,
+  onConfigureAutoSave,
+  onUpdateAutoSaveSettings,
+  autoSaveActive,
+  initialAutoSaveName,
+  initialAutoSaveInterval
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +52,16 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   const [savedSessions, setSavedSessions] = useState<SavedSessionMetadata[]>([]);
   const [saveName, setSaveName] = useState('');
   const [saveGroup, setSaveGroup] = useState('');
+
+  // Auto Save State
+  const [autoSaveName, setAutoSaveName] = useState(initialAutoSaveName);
+  const [autoSaveMinutes, setAutoSaveMinutes] = useState(initialAutoSaveInterval);
+
+  // Sync state with props when modal opens or props change (due to loading from localStorage)
+  useEffect(() => {
+    setAutoSaveName(initialAutoSaveName);
+    setAutoSaveMinutes(initialAutoSaveInterval);
+  }, [initialAutoSaveName, initialAutoSaveInterval]);
 
   useEffect(() => {
     if (isOpen) loadLibraryIndex();
@@ -77,13 +99,9 @@ const SessionManager: React.FC<SessionManagerProps> = ({
     };
 
     try {
-      // 1. Save Data Blob
       localStorage.setItem(`${STORAGE_KEYS.LIBRARY_DATA_PREFIX}${newId}`, JSON.stringify(sessionData));
-      
-      // 2. Update Index
       const newIndex = [...savedSessions, metadata];
       localStorage.setItem(STORAGE_KEYS.LIBRARY_INDEX, JSON.stringify(newIndex));
-      
       setSavedSessions(newIndex);
       setSaveName('');
       setSaveGroup('');
@@ -111,11 +129,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
 
   const deleteFromLibrary = (id: string) => {
     if (!confirm("Are you sure you want to delete this session?")) return;
-    
-    // Remove Data
     localStorage.removeItem(`${STORAGE_KEYS.LIBRARY_DATA_PREFIX}${id}`);
-    
-    // Update Index
     const newIndex = savedSessions.filter(s => s.id !== id);
     localStorage.setItem(STORAGE_KEYS.LIBRARY_INDEX, JSON.stringify(newIndex));
     setSavedSessions(newIndex);
@@ -136,7 +150,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
           });
         }
       }
-      
       const blob = await exportCollectionToZip(sessionsToExport);
       downloadBlob(blob, `AI_Teacher_Library_${new Date().toISOString().slice(0, 10)}.zip`);
     } catch (e) {
@@ -155,7 +168,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
     setError(null);
     try {
       const importedSessions = await importLibraryFromZip(file);
-      
       const newIndex = [...savedSessions];
       
       importedSessions.forEach(session => {
@@ -168,7 +180,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
           topicCount: session.whiteboards.length
         };
         
-        // Save Data
         localStorage.setItem(`${STORAGE_KEYS.LIBRARY_DATA_PREFIX}${newId}`, JSON.stringify({
           whiteboards: session.whiteboards,
           chatHistory: session.chatHistory,
@@ -192,16 +203,40 @@ const SessionManager: React.FC<SessionManagerProps> = ({
     }
   };
 
+  const handleSetupAutoSave = async () => {
+      try {
+          // Check for API support
+          if (!('showDirectoryPicker' in window)) {
+              alert("Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.");
+              return;
+          }
+          
+          // @ts-ignore
+          const dirHandle = await window.showDirectoryPicker();
+          if (dirHandle) {
+              onConfigureAutoSave(dirHandle, autoSaveMinutes, autoSaveName);
+          }
+      } catch (err) {
+          console.error("Directory picker cancelled or failed", err);
+      }
+  };
+
+  const handleDownloadScript = () => {
+      const script = generateCleanupScript();
+      const readme = generateCleanupReadme();
+      
+      downloadBlob(new Blob([script], { type: 'text/javascript' }), 'cleanup_sessions.js');
+      downloadBlob(new Blob([readme], { type: 'text/markdown' }), 'README_CLEANUP.md');
+  };
+
   // Grouping Logic
   const groupedSessions = useMemo(() => {
     const groups: { [key: string]: SavedSessionMetadata[] } = { 'Ungrouped': [] };
-    
     savedSessions.forEach(session => {
       const g = session.group || 'Ungrouped';
       if (!groups[g]) groups[g] = [];
       groups[g].push(session);
     });
-    
     return groups;
   }, [savedSessions]);
 
@@ -215,11 +250,21 @@ const SessionManager: React.FC<SessionManagerProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Session Library">
       <div className="flex flex-col h-[70vh]">
         
-        {/* Top Controls: Import/Export */}
-        <div className="flex flex-wrap gap-4 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-           <div className="flex-1 min-w-[200px]">
-              <h4 className="font-bold text-sm mb-2 text-gray-700 dark:text-gray-300">Backup & Restore</h4>
-              <div className="flex gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+             {/* Local Browser Storage */}
+            <div>
+               <h4 className="font-bold text-sm mb-2 text-blue-800 dark:text-blue-300">Browser Storage</h4>
+               <div className="flex gap-2 items-center mb-2">
+                     <input 
+                        type="text" 
+                        placeholder="Session Name..." 
+                        value={saveName} 
+                        onChange={e => setSaveName(e.target.value)}
+                        className="flex-1 text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800"
+                     />
+                     <Button size="sm" onClick={saveToLibrary} disabled={!saveName || whiteboards.length === 0}>Save</Button>
+               </div>
+               <div className="flex gap-2">
                  <input type="file" accept=".zip" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                  <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isProcessing}>
                     {isProcessing ? 'Importing...' : 'Import ZIP'}
@@ -228,43 +273,61 @@ const SessionManager: React.FC<SessionManagerProps> = ({
                     Export All
                  </Button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">Supports multi-session ZIP files and folders.</p>
-           </div>
-           
-           <div className="flex-1 min-w-[200px] bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
-              <h4 className="font-bold text-sm mb-2 text-blue-800 dark:text-blue-300">Save Current Session</h4>
-              <div className="flex gap-2 items-center">
-                 <div className="flex-1">
-                     <input 
-                        type="text" 
-                        placeholder="Session Name..." 
-                        value={saveName} 
-                        onChange={e => setSaveName(e.target.value)}
-                        className="w-full text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800"
-                     />
-                 </div>
-                 <div className="w-1/3">
-                     <input 
-                        type="text" 
-                        placeholder="Folder (Optional)" 
-                        value={saveGroup} 
-                        onChange={e => setSaveGroup(e.target.value)}
-                        className="w-full text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800"
-                     />
-                 </div>
-                 <Button size="sm" onClick={saveToLibrary} disabled={!saveName || whiteboards.length === 0}>
-                    Save
-                 </Button>
-              </div>
-           </div>
+            </div>
+
+            {/* Auto Save Config */}
+            <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-lg border border-orange-100 dark:border-orange-900/30">
+                <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-bold text-sm text-orange-800 dark:text-orange-300">Auto-Save to Disk</h4>
+                    {autoSaveActive && <span className="text-xs font-bold text-green-600 animate-pulse">● Active</span>}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Automatically saves session snapshots to a folder on your computer.
+                </p>
+                
+                <div className="flex gap-2 mb-2">
+                    <input 
+                       type="text" 
+                       value={autoSaveName} 
+                       onChange={(e) => {
+                           const val = e.target.value;
+                           setAutoSaveName(val);
+                           onUpdateAutoSaveSettings(autoSaveMinutes, val);
+                       }}
+                       placeholder="Base Filename"
+                       className="flex-1 text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800"
+                    />
+                    <div className="flex items-center gap-1">
+                        <input 
+                           type="number" 
+                           value={autoSaveMinutes} 
+                           onChange={(e) => {
+                               const val = Math.max(1, parseInt(e.target.value) || 1);
+                               setAutoSaveMinutes(val);
+                               onUpdateAutoSaveSettings(val, autoSaveName);
+                           }}
+                           className="w-12 text-sm px-1 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-center"
+                        />
+                        <span className="text-xs text-gray-500">min</span>
+                    </div>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                    <Button size="sm" onClick={handleSetupAutoSave} variant={autoSaveActive ? 'secondary' : 'primary'}>
+                        {autoSaveActive ? 'Change Folder' : 'Select Folder & Start'}
+                    </Button>
+                    <button onClick={handleDownloadScript} className="text-xs underline text-gray-500 hover:text-orange-500">
+                        Get Cleanup Script
+                    </button>
+                </div>
+            </div>
         </div>
 
         {/* Scrollable List */}
         <div className="flex-1 overflow-y-auto pr-2">
             {savedSessions.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
-                    <p>Library is empty.</p>
-                    <p className="text-sm">Save your current work or import a ZIP.</p>
+                    <p>Browser Library is empty.</p>
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -292,7 +355,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
                             )}
                             {group === 'Ungrouped' && groupedSessions[group].length > 0 && (
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                     {/* Header for ungrouped if groups exist */}
                                      {groupKeys.length > 1 && (
                                          <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 text-xs font-bold text-gray-500 uppercase">Unsorted</div>
                                      )}
@@ -311,9 +373,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
                 </div>
             )}
         </div>
-
         {error && <div className="mt-4 text-red-500 text-sm text-center font-medium">{error}</div>}
-
       </div>
     </Modal>
   );

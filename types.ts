@@ -1,4 +1,3 @@
-
 export enum AppTheme {
   LIGHT = 'light',
   DARK = 'dark',
@@ -45,7 +44,19 @@ export interface PlaygroundCode {
   html: string;
   description: string;
   timestamp: number;
-  status: 'loading' | 'ready' | 'error'; // Added status for background loading
+  status: 'loading' | 'ready' | 'error';
+  type: 'practice' | 'test'; // Distinction between modes
+  relatedTopic?: string;
+  model?: GeminiModel; // Store model used for generation
+}
+
+export interface TestResult {
+  id: string;
+  topic: string;
+  score: number;
+  maxScore: number;
+  levelAssigned: string; // e.g., "Intermediate", "Advanced"
+  timestamp: number;
 }
 
 export interface ApiLogEntry {
@@ -78,6 +89,7 @@ export interface ExportedSessionManifest {
     timestamp: number;
     filePath: string;
   }>;
+  testResults?: TestResult[];
 }
 
 export interface SavedSessionMetadata {
