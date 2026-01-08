@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -47,4 +48,19 @@
 .no-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
+}
+
+/* Interactive SVG Elements */
+.audio-trigger {
+  cursor: pointer;
+  transition: opacity 0.2s, filter 0.2s;
+}
+
+.audio-trigger:hover {
+  filter: brightness(1.2);
+  opacity: 0.9;
+}
+
+.audio-trigger:active {
+  transform: scale(0.98);
 }
