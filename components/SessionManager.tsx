@@ -24,6 +24,7 @@ interface SessionManagerProps {
   // Auto Save Props
   onConfigureAutoSave: (handle: any, interval: number, sessionName: string) => void;
   onUpdateAutoSaveSettings: (interval: number, sessionName: string) => void;
+  onStopAutoSave: () => void;
   autoSaveActive: boolean;
   initialAutoSaveName: string;
   initialAutoSaveInterval: number;
@@ -40,6 +41,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   onImport,
   onConfigureAutoSave,
   onUpdateAutoSaveSettings,
+  onStopAutoSave,
   autoSaveActive,
   initialAutoSaveName,
   initialAutoSaveInterval
@@ -104,7 +106,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
       localStorage.setItem(STORAGE_KEYS.LIBRARY_INDEX, JSON.stringify(newIndex));
       setSavedSessions(newIndex);
       setSaveName('');
-      setSaveGroup('');
+      // Keep group name for convenience
     } catch (e) {
       setError("Storage full. Cannot save session locally.");
     }
@@ -254,7 +256,14 @@ const SessionManager: React.FC<SessionManagerProps> = ({
              {/* Local Browser Storage */}
             <div>
                <h4 className="font-bold text-sm mb-2 text-blue-800 dark:text-blue-300">Browser Storage</h4>
-               <div className="flex gap-2 items-center mb-2">
+               <div className="flex gap-2 mb-2">
+                     <input 
+                        type="text" 
+                        placeholder="Folder Name (Optional)" 
+                        value={saveGroup} 
+                        onChange={e => setSaveGroup(e.target.value)}
+                        className="w-1/3 text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800"
+                     />
                      <input 
                         type="text" 
                         placeholder="Session Name..." 
@@ -262,8 +271,11 @@ const SessionManager: React.FC<SessionManagerProps> = ({
                         onChange={e => setSaveName(e.target.value)}
                         className="flex-1 text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800"
                      />
-                     <Button size="sm" onClick={saveToLibrary} disabled={!saveName || whiteboards.length === 0}>Save</Button>
                </div>
+               <Button size="sm" onClick={saveToLibrary} disabled={!saveName || whiteboards.length === 0} className="w-full mb-3">
+                   Save Current Session
+               </Button>
+               
                <div className="flex gap-2">
                  <input type="file" accept=".zip" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                  <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isProcessing}>
@@ -282,7 +294,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
                     {autoSaveActive && <span className="text-xs font-bold text-green-600 animate-pulse">● Active</span>}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    Automatically saves session snapshots to a folder on your computer.
+                    Automatically saves session <b>ZIPs</b> to a folder on your computer.
                 </p>
                 
                 <div className="flex gap-2 mb-2">
@@ -312,10 +324,19 @@ const SessionManager: React.FC<SessionManagerProps> = ({
                     </div>
                 </div>
                 
-                <div className="flex justify-between items-center">
-                    <Button size="sm" onClick={handleSetupAutoSave} variant={autoSaveActive ? 'secondary' : 'primary'}>
+                <div className="flex justify-between items-center gap-2">
+                    <Button size="sm" onClick={handleSetupAutoSave} variant={autoSaveActive ? 'secondary' : 'primary'} className="flex-1">
                         {autoSaveActive ? 'Change Folder' : 'Select Folder & Start'}
                     </Button>
+                    
+                    {autoSaveActive && (
+                        <Button size="sm" onClick={onStopAutoSave} variant="danger" title="Stop Auto-Save">
+                            Stop
+                        </Button>
+                    )}
+                </div>
+                
+                <div className="mt-2 text-right">
                     <button onClick={handleDownloadScript} className="text-xs underline text-gray-500 hover:text-orange-500">
                         Get Cleanup Script
                     </button>
