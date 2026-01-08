@@ -7,7 +7,7 @@ interface SyllabusProps {
   data: SyllabusData | null;
   gallery: SyllabusData[];
   onGenerate: (topic: string, level: CourseLevel) => void;
-  onImportLevel: (topics: string[]) => void;
+  onImportLevel: (topics: string[], mainTopic?: string) => void;
   onDelete: (id: string) => void;
   onSelect: (syllabus: SyllabusData) => void;
   isLoading: boolean;
@@ -83,7 +83,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
                         {data.level} Level
                     </div>
                   </div>
-                  <Button size="lg" onClick={() => onImportLevel(data.concepts)}>
+                  <Button size="lg" onClick={() => onImportLevel(data.concepts, data.topic)}>
                     Send All to Classroom
                   </Button>
                </div>
@@ -107,7 +107,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
                             size="sm" 
                             variant="ghost" 
                             className="shrink-0 opacity-100 sm:opacity-0 group-hover:opacity-100 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            onClick={() => onImportLevel([concept])}
+                            onClick={() => onImportLevel([concept], data.topic)}
                         >
                             Teach this
                         </Button>
@@ -175,7 +175,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
                                     <Button size="sm" variant="secondary" onClick={() => onSelect(course)}>
                                         View
                                     </Button>
-                                    <Button size="sm" onClick={() => onImportLevel(course.concepts)}>
+                                    <Button size="sm" onClick={() => onImportLevel(course.concepts, course.topic)}>
                                         Teach This
                                     </Button>
                                 </div>
