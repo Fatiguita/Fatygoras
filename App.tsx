@@ -159,8 +159,13 @@ const App: React.FC = () => {
   const performAutoSave = async () => {
       if (!autoSaveHandle) return;
       
-      const timestamp = Date.now();
-      const filename = `${autoSaveName}_${timestamp}_${AUTO_SAVE_TAG}.json`;
+      const now = new Date();
+      const timestamp = now.getTime();
+      // Format: YYYY-MM-DD-HH-mm-ss
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      
+      const filename = `${autoSaveName}_${dateStr}_${AUTO_SAVE_TAG}.json`;
       const currentData = sessionStateRef.current; // Read from ref
 
       const data = JSON.stringify({
@@ -183,6 +188,8 @@ const App: React.FC = () => {
           
           addLog({ type: 'info', source: 'AutoSave', summary: `Timer started: ${autoSaveInterval} mins` });
           
+          // Initial Save Immediately when timer starts? No, wait for interval.
+          // Or saves immediately? Let's stick to interval.
           autoSaveTimerRef.current = window.setInterval(() => {
               performAutoSave();
           }, autoSaveInterval * 60 * 1000); // Minutes to MS
@@ -323,8 +330,10 @@ const App: React.FC = () => {
     setPlaygroundPanelOpen(false);
   };
 
-  const handleGenerate = async (topicOverride?: string) => {
+  const handleGenerate = async (topicOverride?: string, mainTopicContext?: string) => {
     const topicToUse = topicOverride || input;
+    const effectiveMainTopic = mainTopicContext || topicToUse;
+
     if (!topicToUse.trim() || !apiKey) {
       if (!apiKey) alert("Please enter a Gemini API Key.");
       return;
@@ -341,7 +350,9 @@ const App: React.FC = () => {
 
       for (let i = 0; i < topicsToCover.length; i += CHUNK_SIZE) {
         const chunk = topicsToCover.slice(i, i + CHUNK_SIZE);
-        const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, addLog);
+        // We now pass effectiveMainTopic as the main topic context
+        // If coming from Syllabus, mainTopicContext preserves the original Syllabus topic.
+        const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, effectiveMainTopic, addLog);
         previousContext = batchResults.map(b => b.topic).join(", ");
 
         const newWhiteboards: WhiteboardData[] = batchResults.map(item => ({
@@ -598,7 +609,7 @@ const App: React.FC = () => {
                         </div>
                     </>
                 )}
-                {activeTab === Tab.SYLLABUS && <Syllabus data={syllabus} gallery={syllabusGallery} onGenerate={handleGenerateSyllabus} isLoading={isGeneratingSyllabus} onImportLevel={(topics) => handleGenerate(topics.join(", "))} onDelete={(id) => setSyllabusGallery(prev => prev.filter(s => s.id !== id))} onSelect={setSyllabus} />}
+                {activeTab === Tab.SYLLABUS && <Syllabus data={syllabus} gallery={syllabusGallery} onGenerate={handleGenerateSyllabus} isLoading={isGeneratingSyllabus} onImportLevel={(topics, mainTopic) => handleGenerate(topics.join(", "), mainTopic)} onDelete={(id) => setSyllabusGallery(prev => prev.filter(s => s.id !== id))} onSelect={setSyllabus} />}
                 {activeTab === Tab.LEVEL_TEST && <LevelTest onStartTest={handleCreateLevelTest} isGenerating={isGeneratingTest} results={testResults} />}
             </div>
         </main>
