@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Button from './Button';
 
@@ -23,7 +24,6 @@ const makeSvgResponsive = (svgString: string): string => {
   }
 
   // 2. If viewBox is missing but width/height are present, construct a viewBox
-  // This fixes the "cut" issue when models generate fixed-size SVGs without scaling logic
   if (!/viewBox/i.test(newSvg)) {
     const widthMatch = newSvg.match(/width=["']?(\d+(\.\d+)?)["']?/i);
     const heightMatch = newSvg.match(/height=["']?(\d+(\.\d+)?)["']?/i);
@@ -48,6 +48,9 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isAnnotating, setIsAnnotating] = useState(false);
   
+  // Audio State
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
   // Panning/Zooming State
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -72,6 +75,64 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
 
   // Memoize processed SVG to avoid re-parsing on every render
   const processedSvg = useMemo(() => makeSvgResponsive(svgContent), [svgContent]);
+
+  // Cleanup speech on unmount or topic change
+  useEffect(() => {
+    return () => {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+    };
+  }, [topic]);
+
+  // Audio Playback Helpers
+  const playInteractionTone = () => {
+    try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {
+        // Ignore audio context errors
+    }
+  };
+
+  const handleSvgClick = (e: React.MouseEvent | React.TouchEvent) => {
+      // Don't trigger audio if we are annotating
+      if (isAnnotating) return;
+
+      const target = e.target as HTMLElement;
+      // Look for the specific audio trigger class defined in Prompts
+      const audioGroup = target.closest('.audio-trigger');
+
+      if (audioGroup) {
+          e.stopPropagation(); // Stop panning logic
+          const textToSpeak = audioGroup.getAttribute('data-speech');
+          if (textToSpeak) {
+              playInteractionTone();
+              window.speechSynthesis.cancel(); // Stop current
+              const utterance = new SpeechSynthesisUtterance(textToSpeak);
+              utterance.onstart = () => setIsSpeaking(true);
+              utterance.onend = () => setIsSpeaking(false);
+              utterance.onerror = () => setIsSpeaking(false);
+              window.speechSynthesis.speak(utterance);
+          }
+      }
+  };
+
+  const handleStopAudio = () => {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+  };
 
   // Fullscreen toggle (CSS only)
   const toggleFullscreen = () => {
@@ -167,6 +228,10 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   // --- INTERACTION HANDLERS (MOUSE & TOUCH) ---
   
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Check for audio click first
+    handleSvgClick(e);
+    if ((e.target as HTMLElement).closest('.audio-trigger')) return;
+
     if (isAnnotating) {
         startDrawing(e);
     } else {
@@ -193,6 +258,10 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Check for audio click first (use first touch target)
+    handleSvgClick(e);
+    if ((e.target as HTMLElement).closest('.audio-trigger')) return;
+
     if (isAnnotating) {
         startDrawing(e);
         return;
@@ -236,7 +305,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
         }
     } else if (e.touches.length === 1 && isPanning) {
         // Pan Move
-        // preventDefault to stop scrolling page while panning canvas
         if(e.cancelable) e.preventDefault(); 
         setPan({ 
             x: e.touches[0].clientX - dragStart.x, 
@@ -421,6 +489,18 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                 <h3 className="font-hand font-bold text-lg text-gray-800 dark:text-gray-200 truncate max-w-[150px] sm:max-w-[200px] shrink-0">{topic}</h3>
                 
                 <div className="flex items-center gap-2 flex-nowrap shrink-0">
+                    
+                    {/* Audio Controls */}
+                    {isSpeaking && (
+                        <button 
+                            onClick={handleStopAudio}
+                            className="flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-xs font-bold animate-pulse mr-2"
+                        >
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                            Stop Audio
+                        </button>
+                    )}
+
                     {/* Drawing Tools */}
                     {isAnnotating && (
                         <>
@@ -523,7 +603,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                 >
                     {/* SVG Layer */}
                     <div 
-                        className="pointer-events-none select-none w-full h-full flex items-center justify-center p-2 sm:p-8 [&>svg]:w-full [&>svg]:h-full"
+                        className="pointer-events-none select-none w-full h-full flex items-center justify-center p-2 sm:p-8 [&>svg]:w-full [&>svg]:h-full [&_.audio-trigger]:pointer-events-auto"
                         dangerouslySetInnerHTML={{ __html: processedSvg }} 
                     />
                     
