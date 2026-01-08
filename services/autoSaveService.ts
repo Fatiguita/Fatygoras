@@ -44,6 +44,21 @@ export const getStoredDirectoryHandle = async () => {
     }
 };
 
+export const clearStoredDirectoryHandle = async () => {
+    try {
+        const db = await openDB();
+        return new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).delete('autosave_handle');
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (e) {
+        console.error("Failed to clear handle from DB", e);
+    }
+};
+
+
 // --- Script Generation ---
 
 export const generateCleanupScript = () => {
@@ -55,7 +70,7 @@ const path = require('path');
 // Use the current directory where this script runs as the target
 const TARGET_DIR = __dirname;
 const CRYPTO_TAG = '${AUTO_SAVE_TAG}';
-const KEEP_COUNT = 2; // Keep last 2 instances
+const KEEP_COUNT = 2; // Keep last 2 instances per session
 
 console.log(\`Starting Session Cleanup for tag: \${CRYPTO_TAG} in \${TARGET_DIR}\`);
 
@@ -63,14 +78,15 @@ try {
     const files = fs.readdirSync(TARGET_DIR);
     
     // Group files by Session Name
-    // Expected format: Name_Date_CRYPTO_TAG.json
+    // Expected format: Name_Date_CRYPTO_TAG.zip
     const sessions = {};
 
     files.forEach(file => {
-        if (!file.endsWith('.json') || !file.includes(CRYPTO_TAG)) return;
+        // Updated to look for ZIP files
+        if (!file.endsWith('.zip') || !file.includes(CRYPTO_TAG)) return;
 
         // Simple parsing logic
-        // Assuming: SessionName_YYYY-MM-DDTHH-mm-ss_FATY_V4_AUTO.json
+        // Assuming: SessionName_YYYY-MM-DD-HH-mm-ss_FATY_V4_AUTO.zip
         // We split by the crypto tag to isolate the unique name+date part
         const parts = file.split('_' + CRYPTO_TAG);
         if (parts.length < 1) return;
@@ -78,18 +94,37 @@ try {
         // To group effectively, we need the "Base Name" (Session Name).
         // This is tricky if the session name has underscores.
         // Strategy: Use the Date regex to find the split point.
-        // ISO Date usually contains colons or dashes. 
-        // Our App saves as: Name_Timestamp_Tag.json
+        // Date format used: YYYY-MM-DD-HH-mm-ss (all dashes)
         
-        // Let's rely on the file stats for sorting, grouping by name is the challenge.
-        // Let's assume the name is everything before the last 2 underscores if we use a strict format.
-        // Format: Name_TIMESTAMP_TAG.json
-        
-        const nameParts = file.replace('.json', '').split('_');
+        const nameParts = file.replace('.zip', '').split('_');
         // Remove Tag
-        nameParts.pop(); // Remove Tag
-        const timestamp = nameParts.pop(); // Remove Timestamp
-        const sessionName = nameParts.join('_'); // Reconstruct Name
+        nameParts.pop(); 
+        
+        // Remove Date/Timestamp
+        const datePart = nameParts.pop(); 
+        
+        // Reconstruct Name (everything before the date part)
+        const sessionName = nameParts.join('_');
+
+        let timeValue = 0;
+        
+        if (datePart && datePart.includes('-')) {
+             // Assume format YYYY-MM-DD-HH-mm-ss
+             const dParts = datePart.split('-').map(p => parseInt(p));
+             if (dParts.length >= 5) {
+                 // new Date(year, monthIndex, day, hours, minutes, seconds)
+                 // Note: JS Date month is 0-indexed (0=Jan, 11=Dec)
+                 const year = dParts[0];
+                 const month = dParts[1] - 1; 
+                 const day = dParts[2];
+                 const hour = dParts[3];
+                 const minute = dParts[4];
+                 const second = dParts[5] || 0;
+                 
+                 const dateObj = new Date(year, month, day, hour, minute, second);
+                 timeValue = dateObj.getTime();
+             }
+        }
 
         if (!sessions[sessionName]) {
             sessions[sessionName] = [];
@@ -97,7 +132,7 @@ try {
         
         sessions[sessionName].push({
             filename: file,
-            time: parseInt(timestamp) || 0
+            time: timeValue
         });
     });
 
@@ -181,7 +216,7 @@ It keeps the last 2 instances of every unique session and deletes older ones to 
 export const saveToDirectory = async (
     dirHandle: any, // Using any to bypass strict TS check for non-standard API
     filename: string,
-    content: string
+    content: string | Blob
 ) => {
     try {
         const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
