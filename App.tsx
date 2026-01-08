@@ -34,7 +34,8 @@ import {
   generateLevelTestPlayground,
   analyzeImageWithContext 
 } from './services/geminiService';
-import { saveToDirectory, storeDirectoryHandle, getStoredDirectoryHandle } from './services/autoSaveService';
+import { saveToDirectory, storeDirectoryHandle, getStoredDirectoryHandle, clearStoredDirectoryHandle } from './services/autoSaveService';
+import { exportSessionToZip } from './services/sessionService';
 
 enum Tab {
   CLASSROOM = 'classroom',
@@ -160,26 +161,39 @@ const App: React.FC = () => {
       if (!autoSaveHandle) return;
       
       const now = new Date();
-      const timestamp = now.getTime();
       // Format: YYYY-MM-DD-HH-mm-ss
       const pad = (n: number) => n.toString().padStart(2, '0');
       const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
       
-      const filename = `${autoSaveName}_${dateStr}_${AUTO_SAVE_TAG}.json`;
+      // Changed from .json to .zip
+      const filename = `${autoSaveName}_${dateStr}_${AUTO_SAVE_TAG}.zip`;
       const currentData = sessionStateRef.current; // Read from ref
 
-      const data = JSON.stringify({
-          ...currentData,
-          timestamp
-      }, null, 2);
-
       try {
-          await saveToDirectory(autoSaveHandle, filename, data);
-          addLog({ type: 'info', source: 'AutoSave', summary: `Saved session to ${filename}` });
+          const blob = await exportSessionToZip(
+              currentData.whiteboards, 
+              currentData.chatHistory, 
+              currentData.playgrounds, 
+              currentData.theme, 
+              currentData.model
+          );
+          
+          await saveToDirectory(autoSaveHandle, filename, blob);
+          addLog({ type: 'info', source: 'AutoSave', summary: `Saved session ZIP to ${filename}` });
       } catch (e) {
           console.error("Auto save failed", e);
           addLog({ type: 'error', source: 'AutoSave', summary: 'Failed to write file' });
       }
+  };
+
+  const handleStopAutoSave = async () => {
+      if (autoSaveTimerRef.current) {
+          window.clearInterval(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = null;
+      }
+      setAutoSaveHandle(null);
+      await clearStoredDirectoryHandle();
+      addLog({ type: 'info', source: 'AutoSave', summary: 'Auto-save stopped' });
   };
 
   useEffect(() => {
@@ -188,8 +202,6 @@ const App: React.FC = () => {
           
           addLog({ type: 'info', source: 'AutoSave', summary: `Timer started: ${autoSaveInterval} mins` });
           
-          // Initial Save Immediately when timer starts? No, wait for interval.
-          // Or saves immediately? Let's stick to interval.
           autoSaveTimerRef.current = window.setInterval(() => {
               performAutoSave();
           }, autoSaveInterval * 60 * 1000); // Minutes to MS
@@ -677,6 +689,7 @@ const App: React.FC = () => {
             setAutoSaveName(name);
         }}
         onUpdateAutoSaveSettings={handleUpdateAutoSaveSettings}
+        onStopAutoSave={handleStopAutoSave}
         initialAutoSaveName={autoSaveName}
         initialAutoSaveInterval={autoSaveInterval}
       />
