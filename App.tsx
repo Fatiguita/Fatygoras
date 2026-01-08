@@ -521,7 +521,8 @@ const App: React.FC = () => {
       const relatedSyllabi = syllabusGallery.filter(s => s.topic.toLowerCase().includes(normalizedTopic));
       let context = '';
       if (relatedSyllabi.length > 0) {
-          context = `Existing courses:\n` + relatedSyllabi.map(s => `- ${s.level} (${s.topic})`).join('\n');
+          // Changed to include concepts (subtopics) in context
+          context = `Existing courses:\n` + relatedSyllabi.map(s => `- ${s.level} (${s.topic}): ${s.concepts.join(', ')}`).join('\n');
       }
 
       try {
