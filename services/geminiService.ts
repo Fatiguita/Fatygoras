@@ -75,23 +75,27 @@ export const generateWhiteboardBatch = async (
   topics: string[], 
   previousContext: string,
   modelId: string, 
+  mainTopic: string,
   logger?: Logger
 ): Promise<Array<{ topic: string, svg: string, explanation: string }>> => {
   const ai = getClient(apiKey);
   
   const prompt = `
-    Please generate teaching materials for the following topics: ${JSON.stringify(topics)}.
+    Context: The main subject the user is studying is "${mainTopic}".
+    
+    Please generate teaching materials for the following specific sub-topics: ${JSON.stringify(topics)}.
     
     ${previousContext ? `\nCONTEXT FROM PREVIOUS RELATED TOPICS:\n${previousContext}\n` : ''}
 
     Ensure each topic has a unique SVG whiteboard and a detailed explanation following the word counting rules.
+    Ensure the visuals and explanation are deeply grounded in the main context of "${mainTopic}".
   `;
   
   if (logger) logger({ 
     type: 'request', 
     source: 'generateWhiteboardBatch', 
     summary: `Generating batch for ${topics.length} topics`, 
-    details: { model: modelId, topics, promptContent: prompt } 
+    details: { model: modelId, mainTopic, topics, promptContent: prompt } 
   });
 
   try {
