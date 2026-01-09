@@ -50,7 +50,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   
   // Audio State
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   // Panning/Zooming State
   const [isPanning, setIsPanning] = useState(false);
@@ -76,22 +75,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
 
   // Memoize processed SVG to avoid re-parsing on every render
   const processedSvg = useMemo(() => makeSvgResponsive(svgContent), [svgContent]);
-
-  // Load voices
-  useEffect(() => {
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        setAvailableVoices(voices);
-      }
-    };
-    
-    loadVoices();
-    // Chrome loads voices asynchronously
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, []);
 
   // Cleanup speech on unmount or topic change
   useEffect(() => {
@@ -134,27 +117,10 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
       if (audioGroup) {
           e.stopPropagation(); // Stop panning logic
           const textToSpeak = audioGroup.getAttribute('data-speech');
-          const langCode = audioGroup.getAttribute('data-lang');
-
           if (textToSpeak) {
               playInteractionTone();
               window.speechSynthesis.cancel(); // Stop current
-              
               const utterance = new SpeechSynthesisUtterance(textToSpeak);
-              
-              // Language Selection Logic
-              if (langCode) {
-                  utterance.lang = langCode;
-                  // Try to find a voice that matches the language code specifically
-                  // We look for exact match first (ja-JP), then prefix match (ja)
-                  const specificVoice = availableVoices.find(v => v.lang === langCode) || 
-                                        availableVoices.find(v => v.lang.startsWith(langCode));
-                  
-                  if (specificVoice) {
-                      utterance.voice = specificVoice;
-                  }
-              }
-
               utterance.onstart = () => setIsSpeaking(true);
               utterance.onend = () => setIsSpeaking(false);
               utterance.onerror = () => setIsSpeaking(false);
