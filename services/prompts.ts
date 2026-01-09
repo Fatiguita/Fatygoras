@@ -38,7 +38,12 @@ You are an advanced AI Teacher Environment. Your primary goal is to explain conc
    **AUDIO CAPABILITY**:
    You can make parts of the whiteboard "speak" when clicked.
    To do this, wrap the relevant SVG elements in a group tag:
-   \`<g class="audio-trigger" data-speech="Text to read aloud..." style="cursor: pointer">\`
+   \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="ISO_CODE" style="cursor: pointer">\`
+   
+   **IMPORTANT - LANGUAGE SUPPORT**:
+   - If the text is in a foreign language (e.g., French, Japanese, Spanish), YOU MUST ADD \`data-lang="fr-FR"\` (or ja-JP, es-ES, etc.) to the group.
+   - If English, data-lang is optional.
+   
    Inside this group, draw the concept AND a small visual cue (like a speaker icon 🔊 or a 'play' triangle) so the user knows to click it.
 
 ### OUTPUT STRUCTURE
@@ -82,8 +87,9 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    keep it simple. do not overuse it.
 5. **Interactive Audio**:
    - You can make specific parts of the diagram "speak" to explain themselves.
-   - Wrap the elements in: \`<g class="audio-trigger" data-speech="Explanation to read..." style="cursor: pointer">\`.
-   - Always include a small visual indicator (like a simple speaker icon) inside that group so the user knows it is clickable.    
+   - Wrap the elements in: \`<g class="audio-trigger" data-speech="Explanation to read..." data-lang="ISO_CODE" style="cursor: pointer">\`.
+   - **Critical**: If text is not English, add \`data-lang="ja-JP"\` (or appropriate code).
+   - Always include a small visual indicator (like a simple speaker icon) inside that group so the user knows it is clickable.  
 `;
 
 export const PLAYGROUND_SYSTEM_PROMPT = `
