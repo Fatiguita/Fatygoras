@@ -331,6 +331,7 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    - You can make specific parts of the diagram "speak" to explain themselves.
    - Wrap the elements in: \`<g class="audio-trigger" data-speech="Explanation to read..." data-lang="en-US" style="cursor: pointer">\`.
    - **IMPORTANT**: You MUST include the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE') to ensure the correct accent and pronunciation.
+   - You MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary.
    - Always include a small visual indicator (like a simple speaker icon) inside that group so the user knows it is clickable.  
 `,cC=`
 You are a creative coding assistant. Your task is to generate a self-contained HTML/JS/CSS snippet that serves as an interactive "Practice Playground" for a student.
