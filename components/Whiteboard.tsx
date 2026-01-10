@@ -117,10 +117,13 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
       if (audioGroup) {
           e.stopPropagation(); // Stop panning logic
           const textToSpeak = audioGroup.getAttribute('data-speech');
+          const langToSpeak = audioGroup.getAttribute('data-lang') || 'en-US';
+
           if (textToSpeak) {
               playInteractionTone();
               window.speechSynthesis.cancel(); // Stop current
               const utterance = new SpeechSynthesisUtterance(textToSpeak);
+              utterance.lang = langToSpeak;
               utterance.onstart = () => setIsSpeaking(true);
               utterance.onend = () => setIsSpeaking(false);
               utterance.onerror = () => setIsSpeaking(false);
