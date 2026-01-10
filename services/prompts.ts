@@ -41,7 +41,8 @@ You are an advanced AI Teacher Environment. Your primary goal is to explain conc
    To do this, wrap the relevant SVG elements in a group tag:
    \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
    Inside this group, draw the concept AND a small visual cue (like a speaker icon 🔊 or a 'play' triangle) so the user knows to click it.
-   **IMPORTANT**: You MUST include the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE') to ensure the correct accent and pronunciation. Default to 'en-US' if unsure.
+   **IMPORTANT**: You MUST include the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE') to ensure the correct accent and pronunciation. Default to user language if unsure.
+   you MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary.
 
 ### OUTPUT STRUCTURE
 For the main response:
@@ -86,6 +87,7 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    - You can make specific parts of the diagram "speak" to explain themselves.
    - Wrap the elements in: \`<g class="audio-trigger" data-speech="Explanation to read..." data-lang="en-US" style="cursor: pointer">\`.
    - **IMPORTANT**: You MUST include the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE') to ensure the correct accent and pronunciation.
+   - You MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary.
    - Always include a small visual indicator (like a simple speaker icon) inside that group so the user knows it is clickable.  
 `;
 
