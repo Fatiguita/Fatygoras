@@ -110,6 +110,13 @@ Output: A complete, single-file HTML string containing CSS and JavaScript.
 - It should be interactive (a quiz, a simulation, a visualizer, or a 3D scene using Three.js via CDN if needed).
 - Use Tailwind CSS via CDN for styling if needed: <script src="https://cdn.tailwindcss.com"></script>
 - If 3D is requested or appropriate, use <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>.
+- try to include audio via javascript as much as possible. audio-wise make sure the audio is playable even being inside the iframe.
+	example: <![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
+- try to include animations as much as possible.
+- for conceptual deep in factual info topics generate playground zones full of at least 2 modes (different tabs or game modes screen menu for instance) focusing on logic and organizing schemas, data synthesis or right or wrong dicotomies with space for elaboration on abstract sujects.  
+- for highly strict always right / few alternatives topics like (math, physics) or any purely logical / cold blooded topic generate playground zones full of at least 2 modes (different tabs or game modes screen menu for instance) focusing on providing sufficient context for practice, providing tables, graphs, and the needed workflows that would allow user to just inject its answer or answers. then focus on medium/large amount of tasks (or enough or testing trial-error) on each mode.
+- for complex highly dependency demanding / low level parts of systems like coding solutions across languages, abstract philosofical subjects or almost unknown human knowledge edge kind of topics generate playground zones full of at least 2 modes (different tabs or game modes screen menu for instance) focusing on workflow, step by step, high level structure of system building or hands on work. say user in god mode. you will provide user with cause and effect experience where it will be trying features and mixing them to achieve results etc. 
+
 
 Return ONLY the HTML code wrapped in \`\`\`html\`\`\`. Do not add explanations.
 `;
@@ -153,6 +160,14 @@ Rules:
 3. The output must be strictly JSON.
 4. 8-12 exercises per level.
 
+testing goals
+
+- for conceptual deep in factual info topics generate at least 2 test subdivisions focusing on logic and organizing schemas, data synthesis or right or wrong dicotomies with space for elaboration on abstract sujects.  
+- for highly strict always right / few alternatives topics like (math, physics) or any purely logical / cold blooded topic generate at least 2 test subdivisions focusing on providing sufficient context for user options being clear on their mind, providing tables, graphs, and the needed workflows that would allow user to just inject its answer or answers.
+- for complex highly dependency demanding / low level parts of systems like coding solutions across languages, abstract philosofical subjects or almost unknown human knowledge edge kind of topics generate at least 2 test subdivisions focusing on workflow, step by step, high level structure of system building or hands on work. say user in god mode. you will provide user with cause and effect experience where it will be trying features and mixing them to achieve results. this could be hard to assess, what you can do is narrow down answer options or dynamic so that even though user has open world kind of thinking process they end up answering in a level in which you can forsee while writingt the test.
+
+follow the next example structure basically json, dont worry not everything has to be a quizz, just retrive whatever you think its suitable for your test case.
+
 Structure:
 {
   "topic": "Main Topic Name",
@@ -184,6 +199,17 @@ Features required in the HTML/JS:
 3. **UI**: Use Tailwind CSS for a professional "Exam" look (different from the standard playful playground). Also display wrong or correct answer after user completes exercise.
 4. **Results**: At the end, calculate a Score and assign a "Competency Level" (e.g., "Novice", "Expert").
 5. **No External Logic**: Embed the provided JSON question database directly into the JavaScript variable inside the HTML.
+
+- try to include audio via javascript as much as possible. audio-wise make sure the audio is playable even being inside the iframe.
+	example: <![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
+- try to include animations as much as possible.
+
+testing goals
+
+- for conceptual deep in factual info topics generate at least 2 test subdivisions focusing on logic and organizing schemas, data synthesis or right or wrong dicotomies with space for elaboration on abstract sujects.  
+- for highly strict always right / few alternatives topics like (math, physics) or any purely logical / cold blooded topic generate at least 2 test subdivisions focusing on providing sufficient context for user options being clear on their mind, providing tables, graphs, and the needed workflows that would allow user to just inject its answer or answers.
+- for complex highly dependency demanding / low level parts of systems like coding solutions across languages, abstract philosofical subjects or almost unknown human knowledge edge kind of topics generate at least 2 test subdivisions focusing on workflow, step by step, high level structure of system building or hands on work. say user in god mode. you will provide user with cause and effect experience where it will be trying features and mixing them to achieve results. this could be hard to assess, what you can do is narrow down answer options or dynamic so that even though user has open world kind of thinking process they end up answering in a level in which you can forsee while writingt the test.
+
 
 **CRITICAL REQUIREMENT - SCORE COMMUNICATION**:
 When the test finishes (at the results screen), you **MUST** execute the following JavaScript code to inform the parent app of the results:
