@@ -48,52 +48,8 @@ You are an advanced AI Teacher Environment. Your primary goal is to explain conc
    even though it adds extra code, this ensures the audio is audible in any language for any use case.
 
    example: 
-   		function getBestVoice(lang) {
-            const voices = speechSynthesis.getVoices();
-            if (voices.length === 0) return null;
-
-            let voice = voices.find(v => v.lang === lang);
-            if (voice) return voice;
-
-            const prefix = lang.split('-')[0];
-            voice = voices.find(v => v.lang.startsWith(prefix));
-            if (voice) return voice;
-
-            return voices.find(v => v.default) || voices[0] || null;
-        }
-
-        speechSynthesis.onvoiceschanged = () => console.log("Voices loaded:", speechSynthesis.getVoices().length);
-        speechSynthesis.getVoices();
-
-        function speak(text, lang = 'enforced language (es-ESP or ja-JP etc)') {
-            if (!window.speechSynthesis) return;
-            speechSynthesis.cancel();
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang;
-            utterance.rate = 0.92;
-            utterance.pitch = 1.04;
-
-            const bestVoice = getBestVoice(lang);
-            if (bestVoice) utterance.voice = bestVoice;
-
-            speechSynthesis.speak(utterance);
-        }
-
-        document.querySelectorAll('.audio-trigger').forEach(el => {
-            el.addEventListener('click', (e) => {
-                if (e.target.tagName === 'SPAN' && e.target.textContent === '🔊') return;
-                const text = el.dataset.speech || el.querySelector('.text-3xl.font-bold').textContent.trim();
-                speak(text, 'enforced language (es-ESP or ja-JP etc)');
-            });
-        });
-                function speakBuiltSentence() {
-            const text = currentJp.join('').trim();
-            if (text) speak(text, 'enforced language (es-ESP or ja-JP etc)');
-        }
-
-    AND YOU CAN USE speak(any language wherever want to use any other language)
-   you MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary. to achive this use javacscript in scripts 
+   		<![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]> 
+      you MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary. to achive this use javacscript in scripts 
 
    - Second option (not favorite)
    To do this, wrap the relevant SVG elements in a group tag:
@@ -156,51 +112,9 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
 
    example: 
    		
-   		function getBestVoice(lang) {
-            const voices = speechSynthesis.getVoices();
-            if (voices.length === 0) return null;
-
-            let voice = voices.find(v => v.lang === lang);
-            if (voice) return voice;
-
-            const prefix = lang.split('-')[0];
-            voice = voices.find(v => v.lang.startsWith(prefix));
-            if (voice) return voice;
-
-            return voices.find(v => v.default) || voices[0] || null;
-        }
-
-        speechSynthesis.onvoiceschanged = () => console.log("Voices loaded:", speechSynthesis.getVoices().length);
-        speechSynthesis.getVoices();
-
-        function speak(text, lang = 'enforced language (es-ESP or ja-JP etc)') {
-            if (!window.speechSynthesis) return;
-            speechSynthesis.cancel();
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang;
-            utterance.rate = 0.92;
-            utterance.pitch = 1.04;
-
-            const bestVoice = getBestVoice(lang);
-            if (bestVoice) utterance.voice = bestVoice;
-
-            speechSynthesis.speak(utterance);
-        }
-
-        document.querySelectorAll('.audio-trigger').forEach(el => {
-            el.addEventListener('click', (e) => {
-                if (e.target.tagName === 'SPAN' && e.target.textContent === '🔊') return;
-                const text = el.dataset.speech || el.querySelector('.text-3xl.font-bold').textContent.trim();
-                speak(text, 'enforced language (es-ESP or ja-JP etc)');
-            });
-        });
-                function speakBuiltSentence() {
-            const text = currentJp.join('').trim();
-            if (text) speak(text, 'enforced language (es-ESP or ja-JP etc)');
-        }
-
-    AND YOU CAN USE speak(any language wherever want to use any other language)
+   		<![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
+  you MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary. to achive this use javacscript in scripts 
+   
    - Second option (not favorite)
    To do this, wrap the relevant SVG elements in a group tag:
    \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
