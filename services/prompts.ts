@@ -37,16 +37,27 @@ You are an advanced AI Teacher Environment. Your primary goal is to explain conc
    Wrap the SVG code in a markdown block: \`\`\`svg ... \`\`\`.
 
    **AUDIO CAPABILITY**:
-   You can make parts of the whiteboard "speak" when clicked.
-   To do this, wrap the relevant SVG elements in a group tag:
-   \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
-   Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
+
    **IMPORTANT**: You MUST include to ensure the correct accent and pronunciation. to achive this use javacscript in <scripts> using speech syntesis logic or for cases in which the pronunciation is not really important you can just use the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE')
+
+   You can make parts of the whiteboard "speak" when clicked. in the 2 next ways:
+   
+   - First main option.
+
+   <scripts> code in javascript.
+   even though it adds extra code, this ensures the audio is audible in any language for any use case.
 
    example: 
    		
    		<![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
    you MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary. to achive this use javacscript in scripts 
+
+   - Second option (not favorite)
+   To do this, wrap the relevant SVG elements in a group tag:
+   \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
+   Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
+   this method will rely only in browser manually added tts language so it is not so reliable.
+
 
 ### OUTPUT STRUCTURE
 For the main response:
@@ -89,16 +100,28 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    text will have size hierarchy. Tille, sub-title, content etc.
    keep it simple. do not overuse it.
 5. **Interactive Audio**:
-   - You can make specific parts of the diagram "speak" to explain themselves.
-   - Wrap the elements in: \`<g class="audio-trigger" data-speech="Explanation to read..." data-lang="en-US" style="cursor: pointer">\`.
-   - **IMPORTANT**:  You MUST include to ensure the correct accent and pronunciation. to achive this use javacscript in <scripts> using speech syntesis logic or for cases in which the pronunciation is not really important you can just use the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE')
+   **AUDIO CAPABILITY**:
 
-   		example: 
+   **IMPORTANT**: You MUST include to ensure the correct accent and pronunciation. to achive this use javacscript in <scripts> using speech syntesis logic or for cases in which the pronunciation is not really important you can just use the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE')
+
+   You can make parts of the whiteboard "speak" when clicked. in the 2 next ways:
+   
+   - First main option.
+
+   <scripts> code in javascript.
+   even though it adds extra code, this ensures the audio is audible in any language for any use case.
+
+   example: 
    		
    		<![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
+   you MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary. to achive this use javacscript in scripts 
 
-   - You MUST treat different languages (javascript) with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary. to achive this use javacscript in scripts 
-   - Always include a small visual indicator (like a simple speaker icon) inside that group so the user knows it is clickable.  
+   - Second option (not favorite)
+   To do this, wrap the relevant SVG elements in a group tag:
+   \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
+   Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
+   this method will rely only in browser manually added tts language so it is not so reliable.
+
 `;
 
 export const PLAYGROUND_SYSTEM_PROMPT = `
@@ -110,8 +133,28 @@ Output: A complete, single-file HTML string containing CSS and JavaScript.
 - It should be interactive (a quiz, a simulation, a visualizer, or a 3D scene using Three.js via CDN if needed).
 - Use Tailwind CSS via CDN for styling if needed: <script src="https://cdn.tailwindcss.com"></script>
 - If 3D is requested or appropriate, use <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>.
-- try to include audio via javascript as much as possible. audio-wise make sure the audio is playable even being inside the iframe.
-	example: <![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
+- **AUDIO CAPABILITY**:
+
+   **IMPORTANT**: You MUST include to ensure the correct accent and pronunciation. to achive this use javacscript in <scripts> using speech syntesis logic or for cases in which the pronunciation is not really important you can just use the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE')
+
+   You can make parts of the whiteboard "speak" when clicked. in the 2 next ways:
+   
+   - First main option.
+
+   <scripts> code in javascript.
+   even though it adds extra code, this ensures the audio is audible in any language for any use case.
+
+   example: 
+   		
+   		<![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
+   you MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary. to achive this use javacscript in scripts 
+
+   - Second option (not favorite)
+   To do this, wrap the relevant SVG elements in a group tag:
+   \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
+   Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
+   this method will rely only in browser manually added tts language so it is not so reliable.
+
 - try to include animations as much as possible.
 - for conceptual deep in factual info topics generate playground zones full of at least 2 modes (different tabs or game modes screen menu for instance) focusing on logic and organizing schemas, data synthesis or right or wrong dicotomies with space for elaboration on abstract sujects.  
 - for highly strict always right / few alternatives topics like (math, physics) or any purely logical / cold blooded topic generate playground zones full of at least 2 modes (different tabs or game modes screen menu for instance) focusing on providing sufficient context for practice, providing tables, graphs, and the needed workflows that would allow user to just inject its answer or answers. then focus on medium/large amount of tasks (or enough or testing trial-error) on each mode.
@@ -200,8 +243,28 @@ Features required in the HTML/JS:
 4. **Results**: At the end, calculate a Score and assign a "Competency Level" (e.g., "Novice", "Expert").
 5. **No External Logic**: Embed the provided JSON question database directly into the JavaScript variable inside the HTML.
 
-- try to include audio via javascript as much as possible. audio-wise make sure the audio is playable even being inside the iframe.
-	example: <![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
+- **AUDIO CAPABILITY**:
+
+   **IMPORTANT**: You MUST include to ensure the correct accent and pronunciation. to achive this use javacscript in <scripts> using speech syntesis logic or for cases in which the pronunciation is not really important you can just use the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE')
+
+   You can make parts of the whiteboard "speak" when clicked. in the 2 next ways:
+   
+   - First main option.
+
+   <scripts> code in javascript.
+   even though it adds extra code, this ensures the audio is audible in any language for any use case.
+
+   example: 
+   		
+   		<![CDATA[document.querySelectorAll('.audio-trigger').forEach(el => { el.onclick = () => { const msg = new SpeechSynthesisUtterance(el.getAttribute('data-speech')); msg.lang = el.getAttribute('data-lang') || 'ja-JP'; window.speechSynthesis.speak(msg); }; });]]>
+   you MUST treat different languages with different language attributes this way if whiteboard svg is in english but learning for example a language the foreign language sounds can be played in their foreign version, example: audio explains in user native languagge if desired and a button pronounces japanese restaurant vocabulary. to achive this use javacscript in scripts 
+
+   - Second option (not favorite)
+   To do this, wrap the relevant SVG elements in a group tag:
+   \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
+   Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
+   this method will rely only in browser manually added tts language so it is not so reliable.
+
 - try to include animations as much as possible.
 
 testing goals
