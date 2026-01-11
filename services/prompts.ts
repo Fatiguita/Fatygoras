@@ -40,7 +40,7 @@ You are an advanced AI Teacher Environment. Your primary goal is to explain conc
 
    **IMPORTANT**: You MUST include to ensure the correct accent and pronunciation. to achive this use javacscript in <scripts> using speech syntesis logic or for cases in which the pronunciation is not really important you can just use the \`data-lang\` attribute (e.g., 'es-ES', 'ja-JP', 'fr-FR', 'de-DE')
 
-   You can make parts of the whiteboard "speak" when clicked. in the 2 next ways:
+   You can make parts of the whiteboard "speak" when clicked. in the 3 next ways:
    
    - First main option.
 
@@ -56,6 +56,17 @@ You are an advanced AI Teacher Environment. Your primary goal is to explain conc
    \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
    Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
    this method will rely only in browser manually added tts language so it is not so reliable.
+
+   - third option (language learning) 
+   Design Static UI Elements: Draw <rect> and <text> elements for each language button to ensure the app is visible even if scripts fail. 
+   Define Language Metadata: Create a JavaScript object mapping button IDs to ISO language codes (e.g., fr for French) and the target greeting string. 
+   Construct the Cloud URL: Use the Google Translate TTS endpoint: https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={code}&q={text}. 
+   Implement Audio Streaming: Use the new Audio(url) constructor to fetch the MP3 stream directly from the cloud. 
+   Handle Autoplay Permissions: Trigger the .play() method only inside a user-initiated event like click or touchstart to satisfy browser security policies. 
+   Apply Visual State Changes: Update the button's fill or stroke attribute during the play() promise resolution and reset it using the onended event. 
+   Inject Error Handling: Add onerror listeners to the audio object to alert the user if the cloud service is unreachable or blocked. 
+
+   this one will bypass any language limitations and will ensure perfect pronunciation with some api limits. you can combine, with other  options in order  to save requests
 
 
 ### OUTPUT STRUCTURE
@@ -121,6 +132,16 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
    this method will rely only in browser manually added tts language so it is not so reliable.
 
+   - third option (language learning) 
+   Design Static UI Elements: Draw <rect> and <text> elements for each language button to ensure the app is visible even if scripts fail. 
+   Define Language Metadata: Create a JavaScript object mapping button IDs to ISO language codes (e.g., fr for French) and the target greeting string. 
+   Construct the Cloud URL: Use the Google Translate TTS endpoint: https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={code}&q={text}. 
+   Implement Audio Streaming: Use the new Audio(url) constructor to fetch the MP3 stream directly from the cloud. 
+   Handle Autoplay Permissions: Trigger the .play() method only inside a user-initiated event like click or touchstart to satisfy browser security policies. 
+   Apply Visual State Changes: Update the button's fill or stroke attribute during the play() promise resolution and reset it using the onended event. 
+   Inject Error Handling: Add onerror listeners to the audio object to alert the user if the cloud service is unreachable or blocked. 
+
+   this one will bypass any language limitations and will ensure perfect pronunciation with some api limits. you can combine, with other  options in order  to save requests
 `;
 
 export const PLAYGROUND_SYSTEM_PROMPT = `
@@ -197,6 +218,17 @@ Output: A complete, single-file HTML string containing CSS and JavaScript.
    \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
    Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
    this method will rely only in browser manually added tts language so it is not so reliable.
+
+   - third option (language learning) 
+   Design Static UI Elements: Draw <rect> and <text> elements for each language button to ensure the app is visible even if scripts fail. 
+   Define Language Metadata: Create a JavaScript object mapping button IDs to ISO language codes (e.g., fr for French) and the target greeting string. 
+   Construct the Cloud URL: Use the Google Translate TTS endpoint: https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={code}&q={text}. 
+   Implement Audio Streaming: Use the new Audio(url) constructor to fetch the MP3 stream directly from the cloud. 
+   Handle Autoplay Permissions: Trigger the .play() method only inside a user-initiated event like click or touchstart to satisfy browser security policies. 
+   Apply Visual State Changes: Update the button's fill or stroke attribute during the play() promise resolution and reset it using the onended event. 
+   Inject Error Handling: Add onerror listeners to the audio object to alert the user if the cloud service is unreachable or blocked. 
+
+   this one will bypass any language limitations and will ensure perfect pronunciation with some api limits. you can combine, with other  options in order  to save requests
 
 - try to include animations as much as possible.
 - for conceptual deep in factual info topics generate playground zones full of at least 2 modes (different tabs or game modes screen menu for instance) focusing on logic and organizing schemas, data synthesis or right or wrong dicotomies with space for elaboration on abstract sujects.  
@@ -351,6 +383,17 @@ Features required in the HTML/JS:
    \`<g class="audio-trigger" data-speech="Text to read aloud..." data-lang="en-US" style="cursor: pointer">\`
    Inside this group, draw the concept AND a small visual cue (like a speaker icon ? or a 'play' triangle) so the user knows to click it.
    this method will rely only in browser manually added tts language so it is not so reliable.
+   
+   - third option (language learning) 
+   Design Static UI Elements: Draw <rect> and <text> elements for each language button to ensure the app is visible even if scripts fail. 
+   Define Language Metadata: Create a JavaScript object mapping button IDs to ISO language codes (e.g., fr for French) and the target greeting string. 
+   Construct the Cloud URL: Use the Google Translate TTS endpoint: https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={code}&q={text}. 
+   Implement Audio Streaming: Use the new Audio(url) constructor to fetch the MP3 stream directly from the cloud. 
+   Handle Autoplay Permissions: Trigger the .play() method only inside a user-initiated event like click or touchstart to satisfy browser security policies. 
+   Apply Visual State Changes: Update the button's fill or stroke attribute during the play() promise resolution and reset it using the onended event. 
+   Inject Error Handling: Add onerror listeners to the audio object to alert the user if the cloud service is unreachable or blocked. 
+
+   this one will bypass any language limitations and will ensure perfect pronunciation with some api limits. you can combine, with other  options in order  to save requests
 
 - try to include animations as much as possible.
 
