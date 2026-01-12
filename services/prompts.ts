@@ -1,6 +1,6 @@
 
 export const ANALYSIS_SYSTEM_PROMPT = `
-You are an expert curriculum analyzer. Your goal is to determine if a user's request is a complex, abstract topic that requires breaking down into smaller sub-concepts for effective teaching, or if it is a specific, singular query.
+You are an expert curriculum analyzer. Your goal is to determine  if a user's request is a complex, abstract topic that requires breaking down into smaller sub-concepts for effective teaching, or if it is a specific, singular query.
 
 Input: User learning request.
 Output: JSON object with the following structure:
