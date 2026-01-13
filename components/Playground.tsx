@@ -1,5 +1,7 @@
+
 import React, { useRef, useEffect } from 'react';
 import { PlaygroundCode } from '../types';
+import { speak, PLAYGROUND_SURVIVAL_SCRIPT } from '../services/audioService';
 
 interface PlaygroundProps {
   code: PlaygroundCode;
@@ -22,12 +24,22 @@ const Playground: React.FC<PlaygroundProps> = ({ code, onClose, onRetry, onTestC
     }
   }, [code]);
 
-  // Listen for score communication from Level Test apps
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Ensure security check if dealing with external domains, 
-      // but here we are rendering local content.
-      if (event.data && event.data.type === 'FATY_TEST_COMPLETE') {
+      // Security: Validate origin if interacting with external domains, 
+      // but playgrounds are rendered locally. 
+      if (!event.data) return;
+
+      // 1. Audio Request from Playground
+      if (event.data.type === 'SPEAK') {
+          // Playgrounds are usually "practice" and often language-related.
+          // We default sensitivity to TRUE here to ensure they fallback to Google if needed
+          // on strict browsers, rather than risking a broken voice on a practice quiz.
+          speak(event.data.text, event.data.lang, true);
+      }
+
+      // 2. Test Completion
+      if (event.data.type === 'FATY_TEST_COMPLETE') {
           if (onTestComplete) {
               onTestComplete({
                   ...event.data.payload,
@@ -42,7 +54,16 @@ const Playground: React.FC<PlaygroundProps> = ({ code, onClose, onRetry, onTestC
   }, [onTestComplete, code.id]);
 
   const handleDownload = () => {
-    const blob = new Blob([code.html], { type: 'text/html' });
+    let finalHtml = code.html;
+
+    // Inject Survival Script for offline audio support
+    if (finalHtml.includes('<head>')) {
+        finalHtml = finalHtml.replace('<head>', `<head>${PLAYGROUND_SURVIVAL_SCRIPT}`);
+    } else {
+        finalHtml = PLAYGROUND_SURVIVAL_SCRIPT + finalHtml;
+    }
+
+    const blob = new Blob([finalHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
