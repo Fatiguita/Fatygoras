@@ -3,6 +3,7 @@ import Modal from './Modal';
 import Button from './Button';
 import { exportCollectionToZip, importLibraryFromZip, downloadBlob } from '../services/sessionService';
 import { generateCleanupScript, generateCleanupReadme } from '../services/autoSaveService';
+import { getDetectedBrowserName, getBrowserTierOverride, setBrowserTierOverride } from '../services/audioService'; // IMPORT
 import { WhiteboardData, ChatMessage, PlaygroundCode, AppTheme, GeminiModel, SavedSessionMetadata } from '../types';
 import { STORAGE_KEYS } from '../constants';
 
@@ -58,12 +59,20 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   // Auto Save State
   const [autoSaveName, setAutoSaveName] = useState(initialAutoSaveName);
   const [autoSaveMinutes, setAutoSaveMinutes] = useState(initialAutoSaveInterval);
+  
+  // Audio Settings State
+  const [browserName, setBrowserName] = useState('');
+  const [audioOverride, setAudioOverride] = useState<'auto' | 'high' | 'low'>('auto');
 
-  // Sync state with props when modal opens or props change (due to loading from localStorage)
+  // Sync state with props when modal opens
   useEffect(() => {
     setAutoSaveName(initialAutoSaveName);
     setAutoSaveMinutes(initialAutoSaveInterval);
-  }, [initialAutoSaveName, initialAutoSaveInterval]);
+    if(isOpen) {
+        setBrowserName(getDetectedBrowserName());
+        setAudioOverride(getBrowserTierOverride() as 'auto'|'high'|'low');
+    }
+  }, [initialAutoSaveName, initialAutoSaveInterval, isOpen]);
 
   useEffect(() => {
     if (isOpen) loadLibraryIndex();
@@ -78,6 +87,12 @@ const SessionManager: React.FC<SessionManagerProps> = ({
       console.error("Failed to load library index", e);
       setSavedSessions([]);
     }
+  };
+
+  const handleAudioOverrideChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value as 'auto' | 'high' | 'low';
+      setAudioOverride(val);
+      setBrowserTierOverride(val);
   };
 
   const saveToLibrary = () => {
@@ -106,7 +121,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
       localStorage.setItem(STORAGE_KEYS.LIBRARY_INDEX, JSON.stringify(newIndex));
       setSavedSessions(newIndex);
       setSaveName('');
-      // Keep group name for convenience
     } catch (e) {
       setError("Storage full. Cannot save session locally.");
     }
@@ -207,12 +221,10 @@ const SessionManager: React.FC<SessionManagerProps> = ({
 
   const handleSetupAutoSave = async () => {
       try {
-          // Check for API support
           if (!('showDirectoryPicker' in window)) {
               alert("Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.");
               return;
           }
-          
           // @ts-ignore
           const dirHandle = await window.showDirectoryPicker();
           if (dirHandle) {
@@ -249,7 +261,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Session Library">
+    <Modal isOpen={isOpen} onClose={onClose} title="Session Library & Settings">
       <div className="flex flex-col h-[70vh]">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
@@ -288,52 +300,50 @@ const SessionManager: React.FC<SessionManagerProps> = ({
             </div>
 
             {/* Auto Save Config */}
-            <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-lg border border-orange-100 dark:border-orange-900/30">
-                <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-bold text-sm text-orange-800 dark:text-orange-300">Auto-Save to Disk</h4>
-                    {autoSaveActive && <span className="text-xs font-bold text-green-600 animate-pulse">● Active</span>}
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    Automatically saves session <b>ZIPs</b> to a folder on your computer.
-                </p>
-                
-                <div className="flex gap-2 mb-2">
-                    <input 
-                       type="text" 
-                       value={autoSaveName} 
-                       onChange={(e) => {
-                           const val = e.target.value;
-                           setAutoSaveName(val);
-                           onUpdateAutoSaveSettings(autoSaveMinutes, val);
-                       }}
-                       placeholder="Base Filename"
-                       className="flex-1 text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800"
-                    />
-                    <div className="flex items-center gap-1">
-                        <input 
-                           type="number" 
-                           value={autoSaveMinutes} 
-                           onChange={(e) => {
-                               const val = Math.max(1, parseInt(e.target.value) || 1);
-                               setAutoSaveMinutes(val);
-                               onUpdateAutoSaveSettings(val, autoSaveName);
-                           }}
-                           className="w-12 text-sm px-1 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-center"
-                        />
-                        <span className="text-xs text-gray-500">min</span>
+            <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-lg border border-orange-100 dark:border-orange-900/30 flex flex-col justify-between">
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-bold text-sm text-orange-800 dark:text-orange-300">Auto-Save to Disk</h4>
+                        {autoSaveActive && <span className="text-xs font-bold text-green-600 animate-pulse">? Active</span>}
                     </div>
-                </div>
-                
-                <div className="flex justify-between items-center gap-2">
-                    <Button size="sm" onClick={handleSetupAutoSave} variant={autoSaveActive ? 'secondary' : 'primary'} className="flex-1">
-                        {autoSaveActive ? 'Change Folder' : 'Select Folder & Start'}
-                    </Button>
+                    <div className="flex gap-2 mb-2">
+                        <input 
+                        type="text" 
+                        value={autoSaveName} 
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setAutoSaveName(val);
+                            onUpdateAutoSaveSettings(autoSaveMinutes, val);
+                        }}
+                        placeholder="Base Filename"
+                        className="flex-1 text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <div className="flex items-center gap-1">
+                            <input 
+                            type="number" 
+                            value={autoSaveMinutes} 
+                            onChange={(e) => {
+                                const val = Math.max(1, parseInt(e.target.value) || 1);
+                                setAutoSaveMinutes(val);
+                                onUpdateAutoSaveSettings(val, autoSaveName);
+                            }}
+                            className="w-12 text-sm px-1 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-center"
+                            />
+                            <span className="text-xs text-gray-500">min</span>
+                        </div>
+                    </div>
                     
-                    {autoSaveActive && (
-                        <Button size="sm" onClick={onStopAutoSave} variant="danger" title="Stop Auto-Save">
-                            Stop
+                    <div className="flex justify-between items-center gap-2">
+                        <Button size="sm" onClick={handleSetupAutoSave} variant={autoSaveActive ? 'secondary' : 'primary'} className="flex-1">
+                            {autoSaveActive ? 'Change Folder' : 'Select Folder & Start'}
                         </Button>
-                    )}
+                        
+                        {autoSaveActive && (
+                            <Button size="sm" onClick={onStopAutoSave} variant="danger" title="Stop Auto-Save">
+                                Stop
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 
                 <div className="mt-2 text-right">
@@ -394,6 +404,24 @@ const SessionManager: React.FC<SessionManagerProps> = ({
                 </div>
             )}
         </div>
+        
+        {/* Footer: Audio Settings (Not Eyecatching) */}
+        <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-3">
+             <span className="text-xs text-gray-400">Detected: {browserName}</span>
+             <div className="flex items-center gap-2">
+                 <label className="text-xs text-gray-500 font-semibold">Audio Engine:</label>
+                 <select 
+                    value={audioOverride} 
+                    onChange={handleAudioOverrideChange}
+                    className="text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent text-gray-600 dark:text-gray-400 px-1 py-0.5"
+                 >
+                     <option value="auto">Auto (Smart)</option>
+                     <option value="high">Force Native (Tier A)</option>
+                     <option value="low">Force Google Cloud (Tier B)</option>
+                 </select>
+             </div>
+        </div>
+
         {error && <div className="mt-4 text-red-500 text-sm text-center font-medium">{error}</div>}
       </div>
     </Modal>
@@ -410,7 +438,7 @@ const SessionRow: React.FC<{
             <span className="font-semibold text-gray-800 dark:text-gray-200">{session.name}</span>
             <div className="text-xs text-gray-400 flex gap-3">
                 <span>{new Date(session.timestamp).toLocaleDateString()}</span>
-                <span>•</span>
+                <span></span>
                 <span>{session.topicCount} Topics</span>
             </div>
         </div>
