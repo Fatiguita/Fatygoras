@@ -1,27 +1,42 @@
-
 const STORAGE_KEY_BROWSER_OVERRIDE = 'fatygoras_audio_tier_override';
 
+// Helper to map strict ISO codes (ja-JP) to Google Translate friendly codes (ja)
 const sanitizeLangForGoogle = (isoLang: string): string => {
+    // Special cases where Google uses full code
     if (['zh-CN', 'zh-TW', 'pt-BR', 'en-GB', 'en-US'].includes(isoLang)) {
         return isoLang;
     }
+    // For most others (es-ES, ja-JP, fr-FR), Google prefers the 2-letter prefix
     return isoLang.split('-')[0];
 };
 
 export const getDetectedBrowserName = (): string => {
-    if (typeof navigator === 'undefined') return "Unknown";
-    const ua = navigator.userAgent;
+   if (typeof navigator === 'undefined') return "Unknown";
+   const ua = navigator.userAgent;
 
-    if (/OPR\//.test(ua)) return "Opera";
-    if (/Edg\//.test(ua)) return "Microsoft Edge";
-    // Brave usually hides itself, but if we detected it via object or heuristic
-    if ((navigator as any).brave && (navigator as any).brave.isBrave) return "Brave";
+   // ORDER MATTERS: Chromium browsers (Opera, Edge) include "Chrome" in their string.
+   // We must check for the specific ones FIRST.
 
-    if (/Chrome/.test(ua) && /Google Inc/.test(navigator.vendor)) return "Google Chrome";
-    if (/Firefox/.test(ua)) return "Firefox";
-    if (/Safari/.test(ua) && !/Chrome/.test(ua)) return "Safari";
+   // Opera / Opera GX
+   if (/OPR\//.test(ua)) return "Opera / Opera GX";
+   
+   // Microsoft Edge
+   if (/Edg\//.test(ua)) return "Microsoft Edge";
+   
+   // Brave (Hard to detect reliably as it intentionally mimics Chrome)
+   if ((navigator as any).brave && (navigator as any).brave.isBrave) {
+       return "Brave Browser";
+   }
 
-    return "Unknown Browser";
+   // Standard Chrome (or Brave masquerading perfectly)
+   if (/Chrome/.test(ua) && /Google Inc/.test(navigator.vendor)) return "Google Chrome";
+   
+   // Others
+   if (/Firefox/.test(ua)) return "Firefox";
+   if (/Safari/.test(ua) && !/Chrome/.test(ua)) return "Safari";
+   if (/Trident/.test(ua)) return "Internet Explorer";
+   
+   return "Unknown Browser";
 };
 
 export const getBrowserTierOverride = () => localStorage.getItem(STORAGE_KEY_BROWSER_OVERRIDE) || 'auto';
@@ -31,36 +46,40 @@ export const setBrowserTierOverride = (tier: 'auto' | 'high' | 'low') => {
 };
 
 export const isHighTierBrowser = (): boolean => {
-    const override = getBrowserTierOverride();
-    if (override === 'high') return true;
-    if (override === 'low') return false;
+  const override = getBrowserTierOverride();
+  if (override === 'high') return true; 
+  if (override === 'low') return false; 
 
-    const ua = navigator.userAgent;
+  const ua = navigator.userAgent;
+  
+  // TIER DEFINITION:
+  // High Tier = Browsers with reliable, built-in, multi-lingual Neural TTS.
+  // Generally: Official Google Chrome and Microsoft Edge.
+  // 
+  // Low Tier (Fallback to API) = Browsers relying on bare OS voices (which might lack specific languages).
+  // Includes: Firefox, Safari, Opera, and BRAVE (Brave strips Google services).
 
-    // TIER DEFINITION:
-    // High Tier = Browsers with reliable, built-in, multi-lingual Neural TTS.
-    // Generally: Official Google Chrome and Microsoft Edge.
-    // 
-    // Low Tier (Fallback to API) = Browsers relying on bare OS voices (which might lack specific languages).
-    // Includes: Firefox, Safari, Opera, and BRAVE (Brave strips Google services).
+  const isEdge = /Edg\//.test(ua);
+  // Chrome Check: Must have Chrome in UA, Google Vendor, and NOT be Opera
+  const isChrome = /Chrome/.test(ua) && /Google Inc/.test(navigator.vendor) && !/OPR\//.test(ua);
+  
+  // Brave detection (Brave often mimics Chrome exactly, so we might miss it without the property check)
+  const isBrave = (navigator as any).brave && (navigator as any).brave.isBrave;
 
-    const isEdge = /Edg\//.test(ua);
-    const isChrome = /Chrome/.test(ua) && /Google Inc/.test(navigator.vendor) && !/OPR\//.test(ua);
-
-    // Brave detection (Brave often mimics Chrome exactly, so we might miss it without the property check)
-    const isBrave = (navigator as any).brave && (navigator as any).brave.isBrave;
-
-    // Only Edge and pure Chrome are trusted for High Quality Native TTS by default
-    return !!(isEdge || (isChrome && !isBrave));
+  // Only Edge and pure Chrome are trusted for High Quality Native TTS by default
+  return !!(isEdge || (isChrome && !isBrave));
 };
 
+// Internal helper to try playing a URL
 const tryPlayUrl = (url: string): Promise<void> => {
     return new Promise((resolve, reject) => {
         const audio = new Audio(url);
+        // Important: Leave crossOrigin undefined to treat as opaque resource
         audio.volume = 1.0;
-
+        
         let hasResolved = false;
 
+        // 'canplaythrough' implies the browser has buffered enough to start
         audio.oncanplaythrough = () => {
             if (hasResolved) return;
             const playPromise = audio.play();
@@ -72,21 +91,25 @@ const tryPlayUrl = (url: string): Promise<void> => {
                     })
                     .catch(e => {
                         hasResolved = true;
-                        reject(e);
+                        reject(e); // Autoplay block or other playback error
                     });
             }
         };
-
-        audio.onerror = (e) => {
+        
+        // Error handler
+        // FIXED: Removed unused argument 'e' to satisfy TypeScript strict mode
+        audio.onerror = () => {
             if (hasResolved) return;
             hasResolved = true;
             const errCode = audio.error?.code;
             reject(new Error(`Audio load error: ${errCode}`));
         };
 
+        // Safety timeout
         setTimeout(() => {
             if (!hasResolved) {
                 hasResolved = true;
+                // Clean up to stop loading
                 audio.src = "";
                 reject(new Error("Timeout"));
             }
@@ -95,67 +118,72 @@ const tryPlayUrl = (url: string): Promise<void> => {
 };
 
 export const playGoogleFallback = async (text: string, lang: string) => {
-    const safeText = text.length > 100 ? text.substring(0, 100) : text;
-    const q = encodeURIComponent(safeText);
-    const googleLang = sanitizeLangForGoogle(lang);
+  // 1. Strict Truncation
+  const safeText = text.length > 100 ? text.substring(0, 100) : text;
+  const q = encodeURIComponent(safeText);
+  const googleLang = sanitizeLangForGoogle(lang);
+  
+  // 2. Endpoint Cascade
+  const candidates = [
+      `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
+      `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&q=${q}&tl=${googleLang}&idx=0&total=1&textlen=${safeText.length}`,
+      `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
+  ];
 
-    const candidates = [
-        `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
-        `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&q=${q}&tl=${googleLang}&idx=0&total=1&textlen=${safeText.length}`,
-        `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
-    ];
+  for (const url of candidates) {
+      try {
+          await tryPlayUrl(url);
+          console.log(`[Audio] Success with endpoint: ${url}`);
+          return; // Success
+      } catch (e) {
+          console.warn(`[Audio] Failed candidate: ${url}`, e);
+          // Continue to next candidate
+      }
+  }
 
-    for (const url of candidates) {
-        try {
-            await tryPlayUrl(url);
-            console.log(`[Audio] Success with endpoint: ${url}`);
-            return;
-        } catch (e) {
-            console.warn(`[Audio] Failed candidate: ${url}`, e);
-        }
-    }
-
-    throw new Error("All Google Fallbacks failed.");
+  throw new Error("All Google Fallbacks failed.");
 };
 
 export const speak = (text: string, lang: string = 'en-US', strictMode: boolean = false) => {
-    window.speechSynthesis.cancel();
+  window.speechSynthesis.cancel(); 
 
-    const userOverride = getBrowserTierOverride();
-    const isNativeGood = isHighTierBrowser();
+  const userOverride = getBrowserTierOverride();
+  const isNativeGood = isHighTierBrowser();
+  
+  // LOGIC: 
+  // 1. If override is 'low', force Google.
+  // 2. If Auto + StrictMode + Browser is NOT High Tier (e.g. Brave/Firefox), force Google.
+  const shouldForceGoogle = userOverride === 'low' || (strictMode && !isNativeGood);
 
-    // LOGIC: 
-    // 1. If override is 'low', force Google.
-    // 2. If Auto + StrictMode + Browser is NOT High Tier (e.g. Brave/Firefox), force Google.
-    const shouldForceGoogle = userOverride === 'low' || (strictMode && !isNativeGood);
+  if (shouldForceGoogle) {
+    playGoogleFallback(text, lang)
+        .catch(err => {
+            console.error("Google TTS Fallback Failed. Reverting to Local.", err);
+            speakLocal(text, lang);
+        });
+    return;
+  }
 
-    if (shouldForceGoogle) {
-        playGoogleFallback(text, lang)
-            .catch(err => {
-                console.error("Google TTS Fallback Failed. Reverting to Local.", err);
-                speakLocal(text, lang);
-            });
-        return;
-    }
-
-    speakLocal(text, lang);
+  speakLocal(text, lang);
 };
 
 const speakLocal = (text: string, lang: string) => {
-    console.log(`[Audio] Using Local TTS (${lang})`);
-    const msg = new SpeechSynthesisUtterance(text);
-    msg.lang = lang;
+  console.log(`[Audio] Using Local TTS (${lang})`);
+  const msg = new SpeechSynthesisUtterance(text);
+  msg.lang = lang;
+  
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length > 0) {
+      const bestVoice = voices.find(v => v.lang === lang) || 
+                        voices.find(v => v.lang.startsWith(lang.split('-')[0]));
+      if (bestVoice) msg.voice = bestVoice;
+  }
 
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-        const bestVoice = voices.find(v => v.lang === lang) ||
-            voices.find(v => v.lang.startsWith(lang.split('-')[0]));
-        if (bestVoice) msg.voice = bestVoice;
-    }
-
-    msg.rate = 0.9;
-    window.speechSynthesis.speak(msg);
+  msg.rate = 0.9; 
+  window.speechSynthesis.speak(msg);
 };
+
+// --- SURVIVAL SCRIPTS FOR DOWNLOADS ---
 
 export const SVG_SURVIVAL_SCRIPT = `
 <script type="text/javascript">
@@ -187,4 +215,3 @@ export const PLAYGROUND_SURVIVAL_SCRIPT = `
   });
 </script>
 `;
-
