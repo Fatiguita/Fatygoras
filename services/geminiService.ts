@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult, PlaygroundCode, Logger, SyllabusData } from '../types';
 import { 
@@ -25,12 +26,13 @@ export const analyzeTopic = async (apiKey: string, topic: string, modelId: strin
         type: Type.OBJECT,
         properties: {
           isAbstract: { type: Type.BOOLEAN },
+          audioSensitivity: { type: Type.BOOLEAN }, // NEW FIELD
           topics: { 
             type: Type.ARRAY, 
             items: { type: Type.STRING } 
           }
         },
-        required: ["isAbstract", "topics"]
+        required: ["isAbstract", "topics", "audioSensitivity"]
       }
     };
 
@@ -57,7 +59,14 @@ export const analyzeTopic = async (apiKey: string, topic: string, modelId: strin
     });
 
     if (!text) throw new Error("No response from analysis model");
-    return JSON.parse(text) as AnalysisResult;
+    const result = JSON.parse(text);
+    
+    return {
+        isAbstract: result.isAbstract,
+        topics: result.topics,
+        audioSensitivity: result.audioSensitivity || false
+    };
+
   } catch (error) {
     if (logger) logger({ 
       type: 'error', 
@@ -66,7 +75,7 @@ export const analyzeTopic = async (apiKey: string, topic: string, modelId: strin
       details: error 
     });
     console.error("Analysis failed:", error);
-    return { isAbstract: false, topics: [topic] };
+    return { isAbstract: false, topics: [topic], audioSensitivity: false };
   }
 };
 
