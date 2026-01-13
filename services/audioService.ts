@@ -1,3 +1,4 @@
+
 const STORAGE_KEY_BROWSER_OVERRIDE = 'fatygoras_audio_tier_override';
 
 // Helper to map strict ISO codes (ja-JP) to Google Translate friendly codes (ja)
@@ -97,7 +98,6 @@ const tryPlayUrl = (url: string): Promise<void> => {
         };
         
         // Error handler
-        // FIXED: Removed unused argument 'e' to satisfy TypeScript strict mode
         audio.onerror = () => {
             if (hasResolved) return;
             hasResolved = true;
@@ -125,7 +125,9 @@ export const playGoogleFallback = async (text: string, lang: string) => {
   
   // 2. Endpoint Cascade
   const candidates = [
+      // API subdomain (often more permissive)
       `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
+      // Secondary options
       `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&q=${q}&tl=${googleLang}&idx=0&total=1&textlen=${safeText.length}`,
       `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
   ];
@@ -183,34 +185,151 @@ const speakLocal = (text: string, lang: string) => {
   window.speechSynthesis.speak(msg);
 };
 
-// --- SURVIVAL SCRIPTS FOR DOWNLOADS ---
+// --- DYNAMIC SURVIVAL SCRIPTS (Logic injected into Downloads) ---
 
-export const SVG_SURVIVAL_SCRIPT = `
+// We generate the JS logic dynamically to bake in the sensitivity settings
+const getCommonLogic = (sensitivity: boolean) => `
+  var _isSpeaking = false;
+  // This is baked in at download time
+  var _strictMode = ${sensitivity};
+  var _forceCloud = false; // User toggle
+
+  // Detect missing voices
+  var _voicesLoaded = false;
+  if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = function() { _voicesLoaded = true; };
+  }
+
+  function toggleAudioEngine() {
+      _forceCloud = !_forceCloud;
+      var status = _forceCloud ? "Cloud (Google)" : "Local (Device)";
+      alert("Audio switched to: " + status);
+  }
+
+  function speakSmart(text, lang) {
+      if(_isSpeaking) window.speechSynthesis.cancel();
+      _isSpeaking = true;
+
+      // 1. Browser Detection
+      var ua = navigator.userAgent;
+      var isEdge = /Edg\\//.test(ua);
+      var isChrome = /Chrome/.test(ua) && /Google Inc/.test(navigator.vendor) && !/OPR\\//.test(ua);
+      var isBrave = (navigator.brave && navigator.brave.isBrave);
+      var isHighTier = (isEdge || (isChrome && !isBrave));
+      
+      // 2. Check Local Availability
+      // If we aren't English, check if the device actually has the voice
+      var hasLocalVoice = true;
+      if (lang.indexOf('en') !== 0 && window.speechSynthesis) {
+          var voices = window.speechSynthesis.getVoices();
+          // If voices are loaded, check. 
+          if (voices.length > 0) {
+             var prefix = lang.split('-')[0];
+             var match = false;
+             for(var i=0; i<voices.length; i++) {
+                 if(voices[i].lang.indexOf(prefix) === 0) { match = true; break; }
+             }
+             hasLocalVoice = match;
+          }
+      }
+
+      // 3. Logic Matrix
+      var isOnline = navigator.onLine;
+      
+      // Needs Cloud if:
+      // a) User toggled manual override (_forceCloud)
+      // b) Strict Mode is ON AND Browser is Low Tier
+      // c) Device literally lacks the voice (hasLocalVoice == false)
+      var needsCloud = _forceCloud || (_strictMode && !isHighTier) || !hasLocalVoice;
+
+      if (isOnline && needsCloud) {
+          tryPlayGoogle(text, lang);
+      } else {
+          speakLocal(text, lang);
+      }
+  }
+
+  function speakLocal(text, lang) {
+      var msg = new SpeechSynthesisUtterance(text);
+      msg.lang = lang;
+      msg.rate = 0.9;
+      msg.onend = function() { _isSpeaking = false; };
+      window.speechSynthesis.speak(msg);
+  }
+
+  function tryPlayGoogle(text, lang) {
+      var safeText = text.length > 100 ? text.substring(0, 100) : text;
+      var q = encodeURIComponent(safeText);
+      var gLang = lang;
+      if (['zh-CN', 'zh-TW', 'pt-BR', 'en-GB', 'en-US'].indexOf(lang) === -1) {
+          gLang = lang.split('-')[0];
+      }
+      
+      var url = "https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&q=" + q + "&tl=" + gLang;
+      var audio = new Audio(url);
+      audio.volume = 1.0;
+      
+      function fallback() {
+          console.warn("Google TTS failed in standalone. Switching to Local.");
+          speakLocal(text, lang);
+      }
+
+      audio.onerror = fallback;
+      var p = audio.play();
+      if (p !== undefined) p.catch(fallback);
+      
+      setTimeout(function() {
+          if (audio.readyState === 0) fallback();
+      }, 4000);
+  }
+`;
+
+export const getSvgSurvivalScript = (sensitivity: boolean = false) => `
 <script type="text/javascript">
 <![CDATA[
+  ${getCommonLogic(sensitivity)}
+
   document.addEventListener('click', function(e) {
-    const trigger = e.target.closest('.audio-trigger');
+    var trigger = e.target.closest('.audio-trigger');
     if (trigger) {
-        const text = trigger.getAttribute('data-speech');
-        const lang = trigger.getAttribute('data-lang') || 'en-US';
-        window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = lang;
-        window.speechSynthesis.speak(msg);
+        var text = trigger.getAttribute('data-speech');
+        var lang = trigger.getAttribute('data-lang') || 'en-US';
+        // Auto-detect: if Alt key held, toggle engine temporarily
+        if (e.altKey) { _forceCloud = true; }
+        speakSmart(text, lang);
+        if (e.altKey) { _forceCloud = false; } // Reset after click
     }
   });
 ]]>
 </script>
 `;
 
-export const PLAYGROUND_SURVIVAL_SCRIPT = `
+export const getPlaygroundSurvivalScript = (sensitivity: boolean = false) => `
 <script>
-  window.addEventListener('message', (event) => {
+  ${getCommonLogic(sensitivity)}
+
+  // Inject UI Toggle for Playgrounds
+  window.addEventListener('load', function() {
+      var btn = document.createElement('button');
+      btn.innerHTML = "🔊 Config";
+      btn.style.position = "fixed";
+      btn.style.bottom = "10px";
+      btn.style.right = "10px";
+      btn.style.zIndex = "9999";
+      btn.style.padding = "5px 10px";
+      btn.style.background = "#eee";
+      btn.style.border = "1px solid #ccc";
+      btn.style.borderRadius = "4px";
+      btn.style.fontSize = "12px";
+      btn.style.cursor = "pointer";
+      btn.style.opacity = "0.7";
+      btn.onclick = toggleAudioEngine;
+      document.body.appendChild(btn);
+  });
+
+  window.addEventListener('message', function(event) {
       if (event.data && event.data.type === 'SPEAK') {
-          window.speechSynthesis.cancel();
-          const msg = new SpeechSynthesisUtterance(event.data.text);
-          msg.lang = event.data.lang || 'en-US';
-          window.speechSynthesis.speak(msg);
+          speakSmart(event.data.text, event.data.lang || 'en-US');
       }
   });
 </script>
