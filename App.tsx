@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import Whiteboard from './components/Whiteboard';
@@ -136,7 +137,6 @@ const App: React.FC = () => {
   }, [whiteboards, playgrounds, activePlaygroundId]);
 
   // --- AUTO SAVE LOGIC ---
-  // Use a Ref to hold latest state to avoid clearing the interval when state changes
   const sessionStateRef = useRef({
       whiteboards,
       chatHistory,
@@ -165,7 +165,6 @@ const App: React.FC = () => {
       const pad = (n: number) => n.toString().padStart(2, '0');
       const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
       
-      // Changed from .json to .zip
       const filename = `${autoSaveName}_${dateStr}_${AUTO_SAVE_TAG}.zip`;
       const currentData = sessionStateRef.current; // Read from ref
 
@@ -217,13 +216,11 @@ const App: React.FC = () => {
           try {
               const handle = await getStoredDirectoryHandle();
               if (handle) {
-                  // Check existing permission
                   const permission = await handle.queryPermission({ mode: 'readwrite' });
                   if (permission === 'granted') {
                       setAutoSaveHandle(handle);
                       addLog({ type: 'info', source: 'AutoSave', summary: 'Restored previous folder connection automatically' });
                   } else {
-                      // Permission needs to be re-requested (requires user gesture)
                       setPendingResumeHandle(handle);
                       addLog({ type: 'info', source: 'AutoSave', summary: 'Previous folder found. Waiting for resume permission.' });
                   }
@@ -251,8 +248,6 @@ const App: React.FC = () => {
 
   // --- EFFECTS ---
 
-  // Load Session Content on Mount if enabled
-  // We use a useEffect with empty deps because saveToLocal is initialized correctly from lazy storage
   useEffect(() => {
     if (saveToLocal) {
         try {
@@ -267,12 +262,10 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Persistence Effects
   useEffect(() => { if (apiKey) localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey); }, [apiKey]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.SYLLABUS_GALLERY, JSON.stringify(syllabusGallery)); }, [syllabusGallery]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.TEST_RESULTS, JSON.stringify(testResults)); }, [testResults]);
   
-  // Consolidated Settings Persistence
   useEffect(() => { 
     const currentSettings = { 
         saveToLocal, 
@@ -362,8 +355,6 @@ const App: React.FC = () => {
 
       for (let i = 0; i < topicsToCover.length; i += CHUNK_SIZE) {
         const chunk = topicsToCover.slice(i, i + CHUNK_SIZE);
-        // We now pass effectiveMainTopic as the main topic context
-        // If coming from Syllabus, mainTopicContext preserves the original Syllabus topic.
         const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, effectiveMainTopic, addLog);
         previousContext = batchResults.map(b => b.topic).join(", ");
 
@@ -372,7 +363,8 @@ const App: React.FC = () => {
           topic: item.topic,
           svgContent: item.svg,
           explanation: item.explanation,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          audioSensitivity: analysis.audioSensitivity // Pass flag to whiteboard
         }));
 
         setWhiteboards(prev => [...newWhiteboards.reverse(), ...prev]);
@@ -406,7 +398,7 @@ const App: React.FC = () => {
         timestamp: Date.now(),
         status: 'loading',
         type: 'practice',
-        model: model // Track model
+        model: model 
     };
     
     setPlaygrounds(prev => [...prev, placeholder]);
@@ -446,7 +438,6 @@ const App: React.FC = () => {
           let accumulatedSyllabusContext = "";
 
           for (const level of levels) {
-              // OPTIMIZATION: Check if we already have this specific topic+level in the gallery
               const existingSyllabus = syllabusGallery.find(s => 
                   s.topic.trim().toLowerCase() === topic.trim().toLowerCase() && 
                   s.level === level
@@ -456,7 +447,6 @@ const App: React.FC = () => {
                   accumulatedSyllabusContext += JSON.stringify(existingSyllabus) + "\n";
                   addLog({ type: 'info', source: 'LevelTest', summary: `Using existing syllabus for ${level}`, details: existingSyllabus });
               } else {
-                  // If not found, generate it and Add to gallery
                   const s = await generateSyllabus(apiKey, topic, level, selectedModel, addLog, accumulatedSyllabusContext);
                   accumulatedSyllabusContext += JSON.stringify(s) + "\n";
                   setSyllabusGallery(prev => [{...s, id: Date.now().toString() + Math.random()}, ...prev]);
@@ -468,7 +458,6 @@ const App: React.FC = () => {
           
           setPlaygrounds(prev => prev.map(p => p.id === tempId ? { ...testApp, status: 'ready', id: tempId, type: 'test', relatedTopic: topic, model: selectedModel } : p));
 
-          // Init pending result
           setTestResults(prev => [...prev, {
               id: tempId, 
               topic: topic,
@@ -533,7 +522,6 @@ const App: React.FC = () => {
       const relatedSyllabi = syllabusGallery.filter(s => s.topic.toLowerCase().includes(normalizedTopic));
       let context = '';
       if (relatedSyllabi.length > 0) {
-          // Changed to include concepts (subtopics) in context
           context = `Existing courses:\n` + relatedSyllabi.map(s => `- ${s.level} (${s.topic}): ${s.concepts.join(', ')}`).join('\n');
       }
 
@@ -615,7 +603,14 @@ const App: React.FC = () => {
                             {whiteboards.length === 0 && !isGenerating && <div className="text-center py-20 opacity-50"><p className="text-xl font-medium">Classroom is empty.</p></div>}
                             {whiteboards.map((wb) => (
                                 <div key={wb.id} className="relative">
-                                    <Whiteboard topic={wb.topic} svgContent={wb.svgContent} explanation={wb.explanation} onRefine={handleWhiteboardRefine} isRefining={isRefining} />
+                                    <Whiteboard 
+                                      topic={wb.topic} 
+                                      svgContent={wb.svgContent} 
+                                      explanation={wb.explanation} 
+                                      audioSensitivity={wb.audioSensitivity} // Pass down flag
+                                      onRefine={handleWhiteboardRefine} 
+                                      isRefining={isRefining} 
+                                    />
                                     <div className="mt-4 flex justify-end"><Button variant="secondary" onClick={() => handleLaunchPlayground(wb.topic)}>Practice this Topic</Button></div>
                                 </div>
                             ))}
@@ -682,7 +677,6 @@ const App: React.FC = () => {
         }}
         autoSaveActive={!!autoSaveHandle}
         onConfigureAutoSave={async (handle, interval, name) => {
-            // Intercept to store in DB
             await storeDirectoryHandle(handle);
             setAutoSaveHandle(handle);
             setAutoSaveInterval(interval);
@@ -710,7 +704,6 @@ const PlaygroundContent: React.FC<{
     onTestComplete: (res: any) => void
 }> = ({ playgrounds, activePlaygroundId, setActivePlaygroundId, activePlaygroundTab, setActivePlaygroundTab, activePlayground, onClose, onCloseItem, onRetry, onTestComplete }) => {
     
-    // Filter playgrounds by tab type
     const visiblePlaygrounds = playgrounds.filter(p => p.type === activePlaygroundTab);
 
     return (
