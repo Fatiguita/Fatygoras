@@ -1,8 +1,3 @@
-// ============================================================
-// FILE: Fatygoras/components/Whiteboard.tsx
-// ENCODING: utf-8
-// ============================================================
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Button from './Button';
 import { speak, getSvgSurvivalScript } from '../services/audioService';
