@@ -1,3 +1,4 @@
+
 export enum AppTheme {
   LIGHT = 'light',
   DARK = 'dark',
@@ -18,6 +19,7 @@ export interface WhiteboardData {
   svgContent: string;
   explanation: string;
   timestamp: number;
+  audioSensitivity?: boolean; // NEW: Tracks if this topic needs strict audio
 }
 
 export interface ChatMessage {
@@ -37,6 +39,7 @@ export interface SessionData {
 export interface AnalysisResult {
   isAbstract: boolean;
   topics: string[];
+  audioSensitivity: boolean; // NEW: Result from analysis prompt
 }
 
 export interface PlaygroundCode {
@@ -45,9 +48,9 @@ export interface PlaygroundCode {
   description: string;
   timestamp: number;
   status: 'loading' | 'ready' | 'error';
-  type: 'practice' | 'test'; // Distinction between modes
+  type: 'practice' | 'test';
   relatedTopic?: string;
-  model?: GeminiModel; // Store model used for generation
+  model?: GeminiModel;
 }
 
 export interface TestResult {
@@ -55,7 +58,7 @@ export interface TestResult {
   topic: string;
   score: number;
   maxScore: number;
-  levelAssigned: string; // e.g., "Intermediate", "Advanced"
+  levelAssigned: string;
   timestamp: number;
 }
 
@@ -82,6 +85,7 @@ export interface ExportedSessionManifest {
     explanation: string;
     timestamp: number;
     filePath: string;
+    audioSensitivity?: boolean;
   }>;
   playgrounds: Array<{
     id: string;
@@ -95,12 +99,11 @@ export interface ExportedSessionManifest {
 export interface SavedSessionMetadata {
   id: string;
   name: string;
-  group?: string; // For folders/collections
+  group?: string;
   timestamp: number;
   topicCount: number;
 }
 
-// Syllabus Types
 export type CourseLevel = 'Introduction' | 'Beginner' | 'Intermediate' | 'Advanced' | 'Master';
 
 export interface SyllabusData {
