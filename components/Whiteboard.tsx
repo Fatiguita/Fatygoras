@@ -1,7 +1,11 @@
+// ============================================================
+// FILE: Fatygoras/components/Whiteboard.tsx
+// ENCODING: utf-8
+// ============================================================
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Button from './Button';
-import { speak, SVG_SURVIVAL_SCRIPT } from '../services/audioService';
+import { speak, getSvgSurvivalScript } from '../services/audioService';
 
 interface WhiteboardProps {
   svgContent: string;
@@ -109,13 +113,9 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
 
           if (textToSpeak) {
               playInteractionTone();
-              setIsSpeaking(true); // Simplified state tracking
+              setIsSpeaking(true);
               // Call Central Service with sensitivity flag
               speak(textToSpeak, langToSpeak, audioSensitivity);
-              
-              // NOTE: Simple state toggle. The 'speak' function handles async playing.
-              // To accurately track "speaking" state requires more complex listener logic on window.speechSynthesis
-              // which isn't always reliable across browsers. We set it true briefly for UI feedback.
               setTimeout(() => setIsSpeaking(false), 2000); 
           }
       }
@@ -138,13 +138,28 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
   };
 
   const handleDownloadSvg = () => {
-    let finalSvg = processedSvg;
+    let finalSvg = '';
+
+    // CRITICAL FIX: Use the DOM element instead of the raw string.
+    // Browsers automatically fix malformed XML (unclosed tags) when rendering.
+    // By serializing the live DOM node, we get valid XML even if the AI output was broken.
+    const svgElement = svgWrapperRef.current?.querySelector('svg');
     
+    if (svgElement) {
+        finalSvg = new XMLSerializer().serializeToString(svgElement);
+    } else {
+        // Fallback to raw string only if DOM access fails
+        finalSvg = processedSvg;
+    }
+    
+    // GENERATE SCRIPT WITH SENSITIVITY
+    const survivalScript = getSvgSurvivalScript(audioSensitivity);
+
     // Inject Survival Script before closing tag so it works offline
     if (finalSvg.includes('</svg>')) {
-        finalSvg = finalSvg.replace('</svg>', `${SVG_SURVIVAL_SCRIPT}</svg>`);
+        finalSvg = finalSvg.replace('</svg>', `${survivalScript}</svg>`);
     } else {
-        finalSvg += SVG_SURVIVAL_SCRIPT;
+        finalSvg += survivalScript;
     }
 
     const blob = new Blob([finalSvg], { type: 'image/svg+xml' });
@@ -501,11 +516,11 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
                                     className={`p-2 sm:p-1.5 rounded-md text-xs font-semibold capitalize ${currentTool === t ? 'bg-white dark:bg-gray-600 shadow text-blue-600' : 'text-gray-500'}`}
                                     title={t}
                                 >
-                                    {t === 'pen' && '?'}
-                                    {t === 'eraser' && '?'}
-                                    {t === 'box' && '?'}
-                                    {t === 'circle' && '?'}
-                                    {t === 'arrow' && '?'}
+                                    {t === 'pen' && '✎'}
+                                    {t === 'eraser' && '⌫'}
+                                    {t === 'box' && '☐'}
+                                    {t === 'circle' && '○'}
+                                    {t === 'arrow' && '↗'}
                                     {t === 'text' && 'T'}
                                 </button>
                             ))}
