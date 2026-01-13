@@ -1,11 +1,13 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Button from './Button';
+import { speak, SVG_SURVIVAL_SCRIPT } from '../services/audioService';
 
 interface WhiteboardProps {
   svgContent: string;
   explanation: string;
   topic: string;
+  audioSensitivity?: boolean;
   onRefine: (image: string, prompt: string) => Promise<void>;
   isRefining: boolean;
 }
@@ -14,41 +16,34 @@ type Tool = 'pen' | 'box' | 'circle' | 'arrow' | 'text' | 'eraser';
 
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#000000'];
 
-// Helper to ensure SVGs scale correctly within the container
 const makeSvgResponsive = (svgString: string): string => {
   let newSvg = svgString;
-
-  // 1. Ensure preserveAspectRatio is set to 'xMidYMid meet' (contain) to prevent cropping
   if (!/preserveAspectRatio/i.test(newSvg)) {
     newSvg = newSvg.replace(/<svg/i, '<svg preserveAspectRatio="xMidYMid meet"');
   }
-
-  // 2. If viewBox is missing but width/height are present, construct a viewBox
   if (!/viewBox/i.test(newSvg)) {
     const widthMatch = newSvg.match(/width=["']?(\d+(\.\d+)?)["']?/i);
     const heightMatch = newSvg.match(/height=["']?(\d+(\.\d+)?)["']?/i);
-    
     if (widthMatch && heightMatch) {
       const w = widthMatch[1];
       const h = heightMatch[1];
-      // Add viewBox and remove fixed width/height to allow CSS scaling
       newSvg = newSvg
         .replace(/<svg/i, `<svg viewBox="0 0 ${w} ${h}"`)
         .replace(/width=["']?(\d+(\.\d+)?)["']?/i, '')
         .replace(/height=["']?(\d+(\.\d+)?)["']?/i, '');
     }
   }
-
   return newSvg;
 };
 
-const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic, onRefine, isRefining }) => {
+const Whiteboard: React.FC<WhiteboardProps> = ({ 
+    svgContent, explanation, topic, audioSensitivity = false, onRefine, isRefining 
+}) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isAnnotating, setIsAnnotating] = useState(false);
   
-  // Audio State
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Panning/Zooming State
@@ -63,7 +58,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState<{x: number, y: number} | null>(null);
   
-  // History State for Undo/Redo
   const [history, setHistory] = useState<ImageData[]>([]);
   const [historyStep, setHistoryStep] = useState(-1);
   
@@ -73,10 +67,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
 
-  // Memoize processed SVG to avoid re-parsing on every render
   const processedSvg = useMemo(() => makeSvgResponsive(svgContent), [svgContent]);
 
-  // Cleanup speech on unmount or topic change
   useEffect(() => {
     return () => {
         window.speechSynthesis.cancel();
@@ -84,7 +76,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
     };
   }, [topic]);
 
-  // Audio Playback Helpers
   const playInteractionTone = () => {
     try {
         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -101,43 +92,42 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
         osc.start();
         osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {
-        // Ignore audio context errors
-    }
+    } catch (e) { }
   };
 
   const handleSvgClick = (e: React.MouseEvent | React.TouchEvent) => {
-      // Don't trigger audio if we are annotating
       if (isAnnotating) return;
 
       const target = e.target as HTMLElement;
-      // Look for the specific audio trigger class defined in Prompts
+      // Look for the class defined in PROMPTS
       const audioGroup = target.closest('.audio-trigger');
 
       if (audioGroup) {
-          e.stopPropagation(); // Stop panning logic
+          e.stopPropagation(); 
           const textToSpeak = audioGroup.getAttribute('data-speech');
           const langToSpeak = audioGroup.getAttribute('data-lang') || 'en-US';
 
           if (textToSpeak) {
               playInteractionTone();
-              window.speechSynthesis.cancel(); // Stop current
-              const utterance = new SpeechSynthesisUtterance(textToSpeak);
-              utterance.lang = langToSpeak;
-              utterance.onstart = () => setIsSpeaking(true);
-              utterance.onend = () => setIsSpeaking(false);
-              utterance.onerror = () => setIsSpeaking(false);
-              window.speechSynthesis.speak(utterance);
+              setIsSpeaking(true); // Simplified state tracking
+              // Call Central Service with sensitivity flag
+              speak(textToSpeak, langToSpeak, audioSensitivity);
+              
+              // NOTE: Simple state toggle. The 'speak' function handles async playing.
+              // To accurately track "speaking" state requires more complex listener logic on window.speechSynthesis
+              // which isn't always reliable across browsers. We set it true briefly for UI feedback.
+              setTimeout(() => setIsSpeaking(false), 2000); 
           }
       }
   };
 
   const handleStopAudio = () => {
       window.speechSynthesis.cancel();
+      const audios = document.querySelectorAll('audio');
+      audios.forEach(a => a.pause());
       setIsSpeaking(false);
   };
 
-  // Fullscreen toggle (CSS only)
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
   };
@@ -148,7 +138,16 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   };
 
   const handleDownloadSvg = () => {
-    const blob = new Blob([processedSvg], { type: 'image/svg+xml' });
+    let finalSvg = processedSvg;
+    
+    // Inject Survival Script before closing tag so it works offline
+    if (finalSvg.includes('</svg>')) {
+        finalSvg = finalSvg.replace('</svg>', `${SVG_SURVIVAL_SCRIPT}</svg>`);
+    } else {
+        finalSvg += SVG_SURVIVAL_SCRIPT;
+    }
+
+    const blob = new Blob([finalSvg], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -169,7 +168,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
       const width = container.clientWidth;
       const height = container.clientHeight;
 
-      // Only resize if different
       if (canvas.width !== width || canvas.height !== height) {
           let savedData: ImageData | null = null;
           if (ctx && canvas.width > 0 && canvas.height > 0) {
@@ -227,11 +225,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
           if (ctx && imageData) ctx.putImageData(imageData, 0, 0);
       }
   };
-
-  // --- INTERACTION HANDLERS (MOUSE & TOUCH) ---
   
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Check for audio click first
     handleSvgClick(e);
     if ((e.target as HTMLElement).closest('.audio-trigger')) return;
 
@@ -261,7 +256,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Check for audio click first (use first touch target)
     handleSvgClick(e);
     if ((e.target as HTMLElement).closest('.audio-trigger')) return;
 
@@ -271,7 +265,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
     }
 
     if (e.touches.length === 2) {
-        // Pinch Start
         const dist = Math.hypot(
             e.touches[0].clientX - e.touches[1].clientX,
             e.touches[0].clientY - e.touches[1].clientY
@@ -280,7 +273,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
         setTouchStartZoom(zoom);
         setIsPanning(false);
     } else if (e.touches.length === 1) {
-        // Pan Start
         setIsPanning(true);
         setDragStart({ 
             x: e.touches[0].clientX - pan.x, 
@@ -296,7 +288,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
     }
 
     if (e.touches.length === 2) {
-        // Pinch Move
         const dist = Math.hypot(
             e.touches[0].clientX - e.touches[1].clientX,
             e.touches[0].clientY - e.touches[1].clientY
@@ -307,7 +298,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
             setZoom(newZoom);
         }
     } else if (e.touches.length === 1 && isPanning) {
-        // Pan Move
         if(e.cancelable) e.preventDefault(); 
         setPan({ 
             x: e.touches[0].clientX - dragStart.x, 
@@ -487,13 +477,10 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
         )}
         <div className={`relative bg-white dark:bg-[#1e1e1e] ring-1 ring-gray-900/5 dark:ring-white/10 shadow-xl overflow-hidden ${isFullscreen ? 'h-full flex flex-col rounded-none sm:rounded-lg' : 'rounded-lg'}`}>
             
-            {/* Toolbar */}
             <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex flex-wrap justify-between items-center z-10 gap-2 overflow-x-auto no-scrollbar shrink-0">
                 <h3 className="font-hand font-bold text-lg text-gray-800 dark:text-gray-200 truncate max-w-[150px] sm:max-w-[200px] shrink-0">{topic}</h3>
                 
                 <div className="flex items-center gap-2 flex-nowrap shrink-0">
-                    
-                    {/* Audio Controls */}
                     {isSpeaking && (
                         <button 
                             onClick={handleStopAudio}
@@ -504,7 +491,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                         </button>
                     )}
 
-                    {/* Drawing Tools */}
                     {isAnnotating && (
                         <>
                         <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-lg p-0.5 mr-2">
@@ -515,11 +501,11 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                                     className={`p-2 sm:p-1.5 rounded-md text-xs font-semibold capitalize ${currentTool === t ? 'bg-white dark:bg-gray-600 shadow text-blue-600' : 'text-gray-500'}`}
                                     title={t}
                                 >
-                                    {t === 'pen' && '✎'}
-                                    {t === 'eraser' && '⌫'}
-                                    {t === 'box' && '☐'}
-                                    {t === 'circle' && '○'}
-                                    {t === 'arrow' && '↗'}
+                                    {t === 'pen' && '?'}
+                                    {t === 'eraser' && '?'}
+                                    {t === 'box' && '?'}
+                                    {t === 'circle' && '?'}
+                                    {t === 'arrow' && '?'}
                                     {t === 'text' && 'T'}
                                 </button>
                             ))}
@@ -584,7 +570,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                 </div>
             </div>
             
-            {/* Viewport */}
             <div 
                 className={`relative overflow-hidden bg-paper dark:bg-chalkboard-800 ${isFullscreen ? 'flex-1' : 'min-h-[400px] aspect-square sm:aspect-video'} ${!isAnnotating ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 style={{ touchAction: 'none' }}
@@ -596,7 +581,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
             >
-                {/* Content Layer with Transform */}
                 <div 
                     ref={svgWrapperRef}
                     className="absolute inset-0 transition-transform duration-75 origin-top-left flex items-center justify-center w-full h-full will-change-transform"
@@ -604,25 +588,21 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ svgContent, explanation, topic,
                         transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                     }}
                 >
-                    {/* SVG Layer */}
                     <div 
                         className="pointer-events-none select-none w-full h-full flex items-center justify-center p-2 sm:p-8 [&>svg]:w-full [&>svg]:h-full [&_.audio-trigger]:pointer-events-auto"
                         dangerouslySetInnerHTML={{ __html: processedSvg }} 
                     />
                     
-                    {/* Canvas Annotation Layer */}
                     {isAnnotating && (
                         <canvas 
                             ref={canvasRef}
                             className="absolute inset-0 z-20 cursor-crosshair touch-none"
-                            // Stop propagation so we don't trigger panning
                             onClick={e => e.stopPropagation()}
                         />
                     )}
                 </div>
             </div>
 
-            {/* Annotation Tools Footer */}
             {isAnnotating && (
                 <div className="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-3 flex flex-wrap gap-2 items-center justify-between shrink-0">
                     <div className="flex gap-2 text-xs">
