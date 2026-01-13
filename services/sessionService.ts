@@ -35,7 +35,9 @@ const addSessionToZip = (
       topic: wb.topic,
       explanation: wb.explanation,
       timestamp: wb.timestamp,
-      filePath: `whiteboards/${fileName}`
+      filePath: `whiteboards/${fileName}`,
+      // NEW: Persist the audio setting
+      audioSensitivity: wb.audioSensitivity 
     };
   });
 
@@ -51,7 +53,7 @@ const addSessionToZip = (
   });
 
   const manifest: ExportedSessionManifest = {
-    version: "1.1",
+    version: "1.2", // Updated version
     createdAt: Date.now(),
     theme,
     model,
@@ -130,7 +132,9 @@ const extractSessionFromFolder = async (zip: JSZip, rootPath: string): Promise<I
         topic: wbItem.topic,
         explanation: wbItem.explanation,
         timestamp: wbItem.timestamp,
-        svgContent: svgFile ? await svgFile.async("string") : ""
+        svgContent: svgFile ? await svgFile.async("string") : "",
+        // NEW: Restore the audio setting (default to false if missing)
+        audioSensitivity: wbItem.audioSensitivity || false
       };
     })
   );
@@ -157,7 +161,7 @@ const extractSessionFromFolder = async (zip: JSZip, rootPath: string): Promise<I
         })
     );
   } else if ((manifest as any).playground) {
-     // Legacy support
+     // RESTORED: Legacy support for old V1 files
      const pg = (manifest as any).playground;
      const fullPath = rootPath + pg.filePath;
      const htmlFile = zip.file(fullPath);
