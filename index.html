@@ -1,10 +1,14 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- CRITICAL FIX: Hides 'localhost' referrer so Google TTS API doesn't block requests -->
+    <meta name="referrer" content="no-referrer" />
+    
     <title>Fatygoras</title>
-    <!-- Tailwind is now handled via local build -->
   <script type="importmap">
 {
   "imports": {
