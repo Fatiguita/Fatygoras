@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { PlaygroundCode } from '../types';
-import { speak, PLAYGROUND_SURVIVAL_SCRIPT } from '../services/audioService';
+import { speak, getPlaygroundSurvivalScript } from '../services/audioService';
 
 interface PlaygroundProps {
   code: PlaygroundCode;
@@ -56,11 +56,15 @@ const Playground: React.FC<PlaygroundProps> = ({ code, onClose, onRetry, onTestC
   const handleDownload = () => {
     let finalHtml = code.html;
 
+    // GENERATE SCRIPT WITH DEFAULT HIGH SENSITIVITY FOR PLAYGROUNDS
+    // (Playgrounds are usually practice/test, so we assume audio matters)
+    const survivalScript = getPlaygroundSurvivalScript(true);
+
     // Inject Survival Script for offline audio support
     if (finalHtml.includes('<head>')) {
-        finalHtml = finalHtml.replace('<head>', `<head>${PLAYGROUND_SURVIVAL_SCRIPT}`);
+        finalHtml = finalHtml.replace('<head>', `<head>${survivalScript}`);
     } else {
-        finalHtml = PLAYGROUND_SURVIVAL_SCRIPT + finalHtml;
+        finalHtml = survivalScript + finalHtml;
     }
 
     const blob = new Blob([finalHtml], { type: 'text/html' });
