@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import Whiteboard from './components/Whiteboard';
@@ -45,7 +44,6 @@ enum Tab {
 }
 
 const App: React.FC = () => {
-  // Helper for lazy loading settings
   const getInitialSettings = () => {
     try {
       const s = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -56,17 +54,16 @@ const App: React.FC = () => {
   const settings = getInitialSettings();
 
   // --- STATE ---
-  // Initialize state lazily from localStorage to ensure persistence overrides defaults
   const [theme, setTheme] = useState<AppTheme>(() => settings.theme || DEFAULT_THEME);
   const [model, setModel] = useState<GeminiModel>(() => settings.model || DEFAULT_MODEL);
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem(STORAGE_KEYS.API_KEY) || '');
   const [saveToLocal, setSaveToLocal] = useState(() => settings.saveToLocal || false);
   
-  // Auto Save Settings (Lazy Load)
+  // Auto Save Settings
   const [autoSaveName, setAutoSaveName] = useState(() => settings.autoSaveName || 'MySession');
   const [autoSaveInterval, setAutoSaveInterval] = useState<number>(() => settings.autoSaveInterval || 5);
   const [autoSaveHandle, setAutoSaveHandle] = useState<any>(null);
-  const [pendingResumeHandle, setPendingResumeHandle] = useState<any>(null); // Handle recovered from DB needing permission
+  const [pendingResumeHandle, setPendingResumeHandle] = useState<any>(null);
   const autoSaveTimerRef = useRef<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>(Tab.CLASSROOM);
@@ -86,7 +83,7 @@ const App: React.FC = () => {
   const [playgroundWidth, setPlaygroundWidth] = useState(500);
   const [activePlaygroundTab, setActivePlaygroundTab] = useState<'practice' | 'test'>('practice');
   
-  // Level Test State (Lazy Load)
+  // Level Test State
   const [testResults, setTestResults] = useState<TestResult[]>(() => {
       try {
           const s = localStorage.getItem(STORAGE_KEYS.TEST_RESULTS);
@@ -95,7 +92,7 @@ const App: React.FC = () => {
   });
   const [isGeneratingTest, setIsGeneratingTest] = useState(false);
 
-  // Syllabus State (Lazy Load)
+  // Syllabus State
   const [syllabus, setSyllabus] = useState<SyllabusData | null>(null);
   const [syllabusGallery, setSyllabusGallery] = useState<SyllabusData[]>(() => {
       try {
@@ -126,7 +123,6 @@ const App: React.FC = () => {
     setApiLogs(prev => [...prev, newLog]);
   }, []);
 
-  // Context construction
   const chatContext = useMemo(() => {
     const pg = playgrounds.find(p => p.id === activePlaygroundId);
     let pgContext = "[No Active Playground]";
@@ -143,7 +139,9 @@ const App: React.FC = () => {
       playgrounds,
       theme,
       model,
-      testResults
+      testResults,
+      syllabus,
+      syllabusGallery
   });
 
   useEffect(() => {
@@ -153,20 +151,21 @@ const App: React.FC = () => {
           playgrounds,
           theme,
           model,
-          testResults
+          testResults,
+          syllabus,
+          syllabusGallery
       };
-  }, [whiteboards, chatHistory, playgrounds, theme, model, testResults]);
+  }, [whiteboards, chatHistory, playgrounds, theme, model, testResults, syllabus, syllabusGallery]);
 
   const performAutoSave = async () => {
       if (!autoSaveHandle) return;
       
       const now = new Date();
-      // Format: YYYY-MM-DD-HH-mm-ss
       const pad = (n: number) => n.toString().padStart(2, '0');
       const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
       
       const filename = `${autoSaveName}_${dateStr}_${AUTO_SAVE_TAG}.zip`;
-      const currentData = sessionStateRef.current; // Read from ref
+      const currentData = sessionStateRef.current;
 
       try {
           const blob = await exportSessionToZip(
@@ -174,7 +173,9 @@ const App: React.FC = () => {
               currentData.chatHistory, 
               currentData.playgrounds, 
               currentData.theme, 
-              currentData.model
+              currentData.model,
+              currentData.syllabus,
+              currentData.syllabusGallery
           );
           
           await saveToDirectory(autoSaveHandle, filename, blob);
@@ -203,14 +204,13 @@ const App: React.FC = () => {
           
           autoSaveTimerRef.current = window.setInterval(() => {
               performAutoSave();
-          }, autoSaveInterval * 60 * 1000); // Minutes to MS
+          }, autoSaveInterval * 60 * 1000); 
       }
       return () => {
           if (autoSaveTimerRef.current) window.clearInterval(autoSaveTimerRef.current);
       };
   }, [autoSaveHandle, autoSaveInterval]);
 
-  // Restore Auto Save Handle from IndexedDB
   useEffect(() => {
       const restoreAutoSaveHandle = async () => {
           try {
@@ -245,8 +245,6 @@ const App: React.FC = () => {
           console.error("Permission request failed", e);
       }
   };
-
-  // --- EFFECTS ---
 
   useEffect(() => {
     if (saveToLocal) {
@@ -294,7 +292,6 @@ const App: React.FC = () => {
     else root.classList.add('light');
   }, [theme]);
 
-  // Resizing Logic
   const resize = useCallback((e: MouseEvent) => {
     if (isResizing) {
         const newWidth = document.body.clientWidth - e.clientX;
@@ -337,7 +334,7 @@ const App: React.FC = () => {
 
   const handleGenerate = async (topicOverride?: string, mainTopicContext?: string) => {
     const topicToUse = topicOverride || input;
-    const effectiveMainTopic = mainTopicContext || topicToUse;
+    const effectiveMainTopic = mainTopicContext || (topicOverride ? undefined : input);
 
     if (!topicToUse.trim() || !apiKey) {
       if (!apiKey) alert("Please enter a Gemini API Key.");
@@ -348,14 +345,14 @@ const App: React.FC = () => {
     setActiveTab(Tab.CLASSROOM);
 
     try {
-      const analysis = await analyzeTopic(apiKey, topicToUse, model, addLog);
+      const analysis = await analyzeTopic(apiKey, topicToUse, model, addLog, effectiveMainTopic);
       const topicsToCover = analysis.isAbstract ? analysis.topics : [topicToUse];
       const CHUNK_SIZE = 4;
       let previousContext = whiteboards.slice(0, 2).map(w => w.topic).join(", "); 
 
       for (let i = 0; i < topicsToCover.length; i += CHUNK_SIZE) {
         const chunk = topicsToCover.slice(i, i + CHUNK_SIZE);
-        const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, effectiveMainTopic, addLog);
+        const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, effectiveMainTopic || topicToUse, addLog);
         previousContext = batchResults.map(b => b.topic).join(", ");
 
         const newWhiteboards: WhiteboardData[] = batchResults.map(item => ({
@@ -364,7 +361,7 @@ const App: React.FC = () => {
           svgContent: item.svg,
           explanation: item.explanation,
           timestamp: Date.now(),
-          audioSensitivity: analysis.audioSensitivity // Pass flag to whiteboard
+          audioSensitivity: analysis.audioSensitivity
         }));
 
         setWhiteboards(prev => [...newWhiteboards.reverse(), ...prev]);
@@ -390,6 +387,10 @@ const App: React.FC = () => {
         return;
     }
 
+    // Find Related SVG content
+    const relatedWB = whiteboards.find(w => w.topic === topic);
+    const mainTopicContext = relatedWB ? relatedWB.explanation.substring(0, 50) + "..." : input;
+
     const tempId = Date.now().toString();
     const placeholder: PlaygroundCode = {
         id: tempId,
@@ -405,7 +406,14 @@ const App: React.FC = () => {
     setActivePlaygroundId(tempId);
 
     try {
-      const codeData = await generatePlayground(apiKey, topic, model, addLog);
+      const codeData = await generatePlayground(
+          apiKey, 
+          topic, 
+          model, 
+          addLog, 
+          relatedWB?.svgContent, // Pass SVG
+          mainTopicContext       // Pass Context
+      );
       setPlaygrounds(prev => prev.map(p => p.id === tempId ? { ...codeData, status: 'ready', id: tempId, type: 'practice', model: model } : p));
     } catch (error) {
       setPlaygrounds(prev => prev.map(p => p.id === tempId ? { ...p, status: 'error' } : p));
@@ -454,7 +462,14 @@ const App: React.FC = () => {
           }
 
           const quizDbJson = await generateQuizDatabase(apiKey, topic, accumulatedSyllabusContext, selectedModel, addLog);
-          const testApp = await generateLevelTestPlayground(apiKey, topic, quizDbJson, selectedModel, addLog);
+          const testApp = await generateLevelTestPlayground(
+              apiKey, 
+              topic, 
+              quizDbJson, 
+              selectedModel, 
+              addLog,
+              topic // Main Topic Context
+          );
           
           setPlaygrounds(prev => prev.map(p => p.id === tempId ? { ...testApp, status: 'ready', id: tempId, type: 'test', relatedTopic: topic, model: selectedModel } : p));
 
@@ -508,7 +523,18 @@ const App: React.FC = () => {
      setPlaygrounds(prev => prev.map(p => p.id === pg.id ? { ...p, status: 'loading' } : p));
      try {
          const topic = pg.description.replace('Playground: ', '');
-         const codeData = await generatePlayground(apiKey, topic, modelToUse, addLog);
+         // Find SVG again for retry
+         const relatedWB = whiteboards.find(w => w.topic === topic);
+         const mainTopicContext = relatedWB ? relatedWB.explanation.substring(0, 50) + "..." : input;
+
+         const codeData = await generatePlayground(
+             apiKey, 
+             topic, 
+             modelToUse, 
+             addLog,
+             relatedWB?.svgContent,
+             mainTopicContext
+         );
          setPlaygrounds(prev => prev.map(p => p.id === pg.id ? { ...codeData, status: 'ready', id: pg.id, type: 'practice', model: modelToUse } : p));
      } catch(e) {
          setPlaygrounds(prev => prev.map(p => p.id === pg.id ? { ...p, status: 'error' } : p));
@@ -607,7 +633,7 @@ const App: React.FC = () => {
                                       topic={wb.topic} 
                                       svgContent={wb.svgContent} 
                                       explanation={wb.explanation} 
-                                      audioSensitivity={wb.audioSensitivity} // Pass down flag
+                                      audioSensitivity={wb.audioSensitivity} 
                                       onRefine={handleWhiteboardRefine} 
                                       isRefining={isRefining} 
                                     />
@@ -666,6 +692,8 @@ const App: React.FC = () => {
         whiteboards={whiteboards}
         chatHistory={chatHistory}
         playgrounds={playgrounds}
+        syllabus={syllabus}
+        syllabusGallery={syllabusGallery}
         theme={theme}
         model={model}
         onImport={(data) => {
@@ -674,6 +702,8 @@ const App: React.FC = () => {
           setPlaygrounds(data.playgrounds);
           setTheme(data.theme);
           setModel(data.model);
+          if (data.syllabus) setSyllabus(data.syllabus);
+          if (data.syllabusGallery) setSyllabusGallery(data.syllabusGallery);
         }}
         autoSaveActive={!!autoSaveHandle}
         onConfigureAutoSave={async (handle, interval, name) => {
