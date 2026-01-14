@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, PlaygroundCode, Logger, SyllabusData } from '../types';
+import { AnalysisResult, PlaygroundCode, Logger, SyllabusData, ChatMessage } from '../types';
 import { 
   ANALYSIS_SYSTEM_PROMPT, 
   BATCH_TEACHER_SYSTEM_PROMPT, 
@@ -14,7 +13,13 @@ import {
 
 const getClient = (apiKey: string) => new GoogleGenAI({ apiKey });
 
-export const analyzeTopic = async (apiKey: string, topic: string, modelId: string, logger?: Logger): Promise<AnalysisResult> => {
+export const analyzeTopic = async (
+  apiKey: string, 
+  topic: string, 
+  modelId: string, 
+  logger?: Logger,
+  mainTopic?: string
+): Promise<AnalysisResult> => {
   if (logger) logger({ type: 'info', source: 'analyzeTopic', summary: `Starting analysis for: "${topic}"` });
   const ai = getClient(apiKey);
   
@@ -26,7 +31,7 @@ export const analyzeTopic = async (apiKey: string, topic: string, modelId: strin
         type: Type.OBJECT,
         properties: {
           isAbstract: { type: Type.BOOLEAN },
-          audioSensitivity: { type: Type.BOOLEAN }, // NEW FIELD
+          audioSensitivity: { type: Type.BOOLEAN },
           topics: { 
             type: Type.ARRAY, 
             items: { type: Type.STRING } 
@@ -36,16 +41,20 @@ export const analyzeTopic = async (apiKey: string, topic: string, modelId: strin
       }
     };
 
+    const contentToSend = mainTopic && mainTopic !== topic
+        ? `CONTEXT: The user is currently studying the course/subject "${mainTopic}".\nAnalyze this specific sub-topic request: "${topic}"`
+        : topic;
+
     if (logger) logger({ 
       type: 'request', 
       source: 'analyzeTopic', 
       summary: 'Sending generation request', 
-      details: { model: modelId, contents: topic, config } 
+      details: { model: modelId, contents: contentToSend, config } 
     });
 
     const response = await ai.models.generateContent({
       model: modelId,
-      contents: topic,
+      contents: contentToSend,
       config: config
     });
 
@@ -68,12 +77,7 @@ export const analyzeTopic = async (apiKey: string, topic: string, modelId: strin
     };
 
   } catch (error) {
-    if (logger) logger({ 
-      type: 'error', 
-      source: 'analyzeTopic', 
-      summary: 'Analysis failed', 
-      details: error 
-    });
+    if (logger) logger({ type: 'error', source: 'analyzeTopic', summary: 'Analysis failed', details: error });
     console.error("Analysis failed:", error);
     return { isAbstract: false, topics: [topic], audioSensitivity: false };
   }
@@ -136,7 +140,7 @@ export const generateWhiteboardBatch = async (
       source: 'generateWhiteboardBatch', 
       summary: 'Received batch response', 
       details: { 
-          fullText: fullText.substring(0, 500) + "... (truncated)", // Truncate for UI performance but show start
+          fullText: fullText.substring(0, 500) + "... (truncated)", 
           itemsCount: JSON.parse(fullText).length 
       } 
     });
@@ -148,15 +152,27 @@ export const generateWhiteboardBatch = async (
   }
 };
 
-export const generatePlayground = async (apiKey: string, topic: string, modelId: string, logger?: Logger): Promise<Omit<PlaygroundCode, 'status'>> => {
+export const generatePlayground = async (
+  apiKey: string, 
+  topic: string, 
+  modelId: string, 
+  logger?: Logger,
+  whiteboardSvg?: string,
+  mainTopic?: string
+): Promise<Omit<PlaygroundCode, 'status'>> => {
   const ai = getClient(apiKey);
-  const prompt = `Create a practice playground for: ${topic}`;
+  
+  let contextBlock = "";
+  if (mainTopic) contextBlock += `\nMAIN COURSE CONTEXT: ${mainTopic}\n`;
+  if (whiteboardSvg) contextBlock += `\nREFERENCE VISUAL (SVG Code) - Use this to style or structure the playground similarly:\n${whiteboardSvg}\n`;
+
+  const prompt = `${contextBlock}\nCreate a practice playground for: ${topic}`;
 
   if (logger) logger({ 
     type: 'request', 
     source: 'generatePlayground', 
     summary: 'Generating interactive playground', 
-    details: { model: modelId, prompt } 
+    details: { model: modelId, prompt, hasSvg: !!whiteboardSvg } 
   });
   
   try {
@@ -267,21 +283,25 @@ export const generateLevelTestPlayground = async (
     topic: string,
     quizJson: string,
     modelId: string,
-    logger?: Logger
+    logger?: Logger,
+    mainTopic?: string
 ): Promise<Omit<PlaygroundCode, 'status'>> => {
     const ai = getClient(apiKey);
+    
+    const contextStr = mainTopic ? `COURSE CONTEXT: ${mainTopic}\n` : "";
+    const contentToSend = `${contextStr}Create a Level Test App for ${topic}. \n\nHere is the question database to embed:\n${quizJson}`;
 
     if (logger) logger({ 
         type: 'request', 
         source: 'generateLevelTestPlayground', 
         summary: `Generating Level Test App`,
-        details: { quizJsonLength: quizJson.length }
+        details: { quizJsonLength: quizJson.length, mainTopic }
     });
 
     try {
         const response = await ai.models.generateContent({
             model: modelId,
-            contents: `Create a Level Test App for ${topic}. \n\nHere is the question database to embed:\n${quizJson}`,
+            contents: contentToSend,
             config: {
                 systemInstruction: LEVEL_TEST_PLAYGROUND_PROMPT
             }
@@ -315,7 +335,6 @@ export const analyzeImageWithContext = async (
 ): Promise<string> => {
   const ai = getClient(apiKey);
   
-  // Use a vision-capable model (Gemini 2.5/3.0 Pro usually supports this)
   const visionModel = modelId.includes('flash') ? 'gemini-2.5-flash' : 'gemini-3-flash-preview'; 
 
   if (logger) logger({ type: 'request', source: 'analyzeImageWithContext', summary: 'Sending visual analysis request' });
@@ -345,37 +364,87 @@ export const analyzeImageWithContext = async (
 
 export const sendChatMessage = async (
   apiKey: string, 
-  history: {role: string, content: string}[], 
+  history: ChatMessage[], 
   message: string, 
   context: string, 
   modelId: string, 
-  logger?: Logger
+  logger?: Logger,
+  image?: string
 ) => {
   const ai = getClient(apiKey);
   
   const systemPromptWithContext = `${CHATBOT_SYSTEM_PROMPT}\n\nCURRENT APP CONTEXT:\n${context}`;
 
+  // Stateless Approach Strategy (similar to Edit Mode):
+  // 1. We manually build the full 'contents' array from history.
+  // 2. We do NOT use ai.chats.create() which maintains internal state and fails on strict ContentUnion types with mixed media.
+  // 3. We take the last few messages to keep context window manageable.
+
+  const RECENT_MESSAGES_COUNT = 4; // Keep roughly last 4 messages for context
+
   if (logger) logger({ 
     type: 'request', 
-    source: 'sendChatMessage', 
-    summary: 'Sending chat message with context', 
-    details: { model: modelId, message, contextLength: context.length } 
+    source: 'sendChatMessage (Stateless)', 
+    summary: 'Sending chat message', 
+    details: { model: modelId, message, contextLength: context.length, hasImage: !!image } 
   });
 
   try {
-    const chat = ai.chats.create({
-      model: modelId,
-      history: history.map(h => ({
-        role: h.role,
-        parts: [{ text: h.content }]
-      })),
-      config: {
-        systemInstruction: systemPromptWithContext
-      }
+    const contents: any[] = [];
+    
+    // 1. Process recent history
+    const recentHistory = history.slice(-RECENT_MESSAGES_COUNT);
+    
+    recentHistory.forEach(h => {
+        const parts: any[] = [];
+        // Only add text if it exists
+        if (h.content && h.content.trim()) {
+            parts.push({ text: h.content });
+        }
+        // Add historical image if exists
+        if (h.image) {
+            parts.push({ inlineData: { mimeType: 'image/png', data: h.image } });
+        }
+
+        // If a message was somehow empty, skip adding it to avoid API errors
+        if (parts.length > 0) {
+            contents.push({
+                role: h.role,
+                parts: parts
+            });
+        }
     });
 
-    const result = await chat.sendMessage({ message });
-    const text = result.text || "";
+    // 2. Add CURRENT User Message
+    const currentParts: any[] = [];
+    if (message && message.trim()) {
+        currentParts.push({ text: message });
+    }
+    if (image) {
+        currentParts.push({ inlineData: { mimeType: 'image/png', data: image } });
+    }
+
+    if (currentParts.length > 0) {
+        contents.push({
+            role: 'user',
+            parts: currentParts
+        });
+    } else {
+        // Fallback if user sends empty msg? usually UI blocks this.
+        contents.push({ role: 'user', parts: [{ text: "..." }] });
+    }
+
+    // 3. Send via generateContent (Stateless)
+    // IMPORTANT: When using generateContent for chat, we pass the array of contents directly.
+    const response = await ai.models.generateContent({
+        model: modelId,
+        contents: contents, // The full array of previous + current
+        config: {
+            systemInstruction: systemPromptWithContext
+        }
+    });
+
+    const text = response.text || "";
 
     if (logger) logger({ type: 'response', source: 'sendChatMessage', summary: 'Received chat response', details: { text } });
 
