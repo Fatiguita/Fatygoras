@@ -1,4 +1,3 @@
-
 export enum AppTheme {
   LIGHT = 'light',
   DARK = 'dark',
@@ -19,13 +18,14 @@ export interface WhiteboardData {
   svgContent: string;
   explanation: string;
   timestamp: number;
-  audioSensitivity?: boolean; // NEW: Tracks if this topic needs strict audio
+  audioSensitivity?: boolean;
 }
 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
   content: string;
+  image?: string; // Base64 string (raw data without prefix preferably for API, or full for display)
   timestamp: number;
 }
 
@@ -39,7 +39,7 @@ export interface SessionData {
 export interface AnalysisResult {
   isAbstract: boolean;
   topics: string[];
-  audioSensitivity: boolean; // NEW: Result from analysis prompt
+  audioSensitivity: boolean;
 }
 
 export interface PlaygroundCode {
@@ -73,6 +73,17 @@ export interface ApiLogEntry {
 
 export type Logger = (entry: Omit<ApiLogEntry, 'id' | 'timestamp'>) => void;
 
+export type CourseLevel = 'Introduction' | 'Beginner' | 'Intermediate' | 'Advanced' | 'Master';
+
+export interface SyllabusData {
+  id?: string;
+  timestamp?: number;
+  level: CourseLevel;
+  topic: string;
+  description: string;
+  concepts: string[];
+}
+
 export interface ExportedSessionManifest {
   version: string;
   createdAt: number;
@@ -94,6 +105,8 @@ export interface ExportedSessionManifest {
     filePath: string;
   }>;
   testResults?: TestResult[];
+  syllabus?: SyllabusData | null;
+  syllabusGallery?: SyllabusData[];
 }
 
 export interface SavedSessionMetadata {
@@ -102,15 +115,4 @@ export interface SavedSessionMetadata {
   group?: string;
   timestamp: number;
   topicCount: number;
-}
-
-export type CourseLevel = 'Introduction' | 'Beginner' | 'Intermediate' | 'Advanced' | 'Master';
-
-export interface SyllabusData {
-  id?: string;
-  timestamp?: number;
-  level: CourseLevel;
-  topic: string;
-  description: string;
-  concepts: string[];
 }
