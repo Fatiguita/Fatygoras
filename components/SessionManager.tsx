@@ -3,8 +3,8 @@ import Modal from './Modal';
 import Button from './Button';
 import { exportCollectionToZip, importLibraryFromZip, downloadBlob } from '../services/sessionService';
 import { generateCleanupScript, generateCleanupReadme } from '../services/autoSaveService';
-import { getDetectedBrowserName, getBrowserTierOverride, setBrowserTierOverride } from '../services/audioService'; // IMPORT
-import { WhiteboardData, ChatMessage, PlaygroundCode, AppTheme, GeminiModel, SavedSessionMetadata } from '../types';
+import { getDetectedBrowserName, getBrowserTierOverride, setBrowserTierOverride } from '../services/audioService';
+import { WhiteboardData, ChatMessage, PlaygroundCode, AppTheme, GeminiModel, SavedSessionMetadata, SyllabusData } from '../types';
 import { STORAGE_KEYS } from '../constants';
 
 interface SessionManagerProps {
@@ -13,6 +13,9 @@ interface SessionManagerProps {
   whiteboards: WhiteboardData[];
   chatHistory: ChatMessage[];
   playgrounds: PlaygroundCode[];
+  // Added Syllabus props
+  syllabus: SyllabusData | null;
+  syllabusGallery: SyllabusData[];
   theme: AppTheme;
   model: GeminiModel;
   onImport: (data: {
@@ -21,8 +24,9 @@ interface SessionManagerProps {
     playgrounds: PlaygroundCode[];
     theme: AppTheme;
     model: GeminiModel;
+    syllabus?: SyllabusData | null;
+    syllabusGallery?: SyllabusData[];
   }) => void;
-  // Auto Save Props
   onConfigureAutoSave: (handle: any, interval: number, sessionName: string) => void;
   onUpdateAutoSaveSettings: (interval: number, sessionName: string) => void;
   onStopAutoSave: () => void;
@@ -37,6 +41,8 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   whiteboards,
   chatHistory,
   playgrounds,
+  syllabus,
+  syllabusGallery,
   theme,
   model,
   onImport,
@@ -51,20 +57,16 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Library State
   const [savedSessions, setSavedSessions] = useState<SavedSessionMetadata[]>([]);
   const [saveName, setSaveName] = useState('');
   const [saveGroup, setSaveGroup] = useState('');
 
-  // Auto Save State
   const [autoSaveName, setAutoSaveName] = useState(initialAutoSaveName);
   const [autoSaveMinutes, setAutoSaveMinutes] = useState(initialAutoSaveInterval);
   
-  // Audio Settings State
   const [browserName, setBrowserName] = useState('');
   const [audioOverride, setAudioOverride] = useState<'auto' | 'high' | 'low'>('auto');
 
-  // Sync state with props when modal opens
   useEffect(() => {
     setAutoSaveName(initialAutoSaveName);
     setAutoSaveMinutes(initialAutoSaveInterval);
@@ -112,7 +114,9 @@ const SessionManager: React.FC<SessionManagerProps> = ({
       chatHistory,
       playgrounds,
       theme,
-      model
+      model,
+      syllabus,
+      syllabusGallery
     };
 
     try {
@@ -135,7 +139,9 @@ const SessionManager: React.FC<SessionManagerProps> = ({
         chatHistory: parsed.chatHistory || [],
         playgrounds: parsed.playgrounds || [],
         theme: parsed.theme || theme,
-        model: parsed.model || model
+        model: parsed.model || model,
+        syllabus: parsed.syllabus || null,
+        syllabusGallery: parsed.syllabusGallery || []
       });
       onClose();
     } else {
@@ -201,7 +207,9 @@ const SessionManager: React.FC<SessionManagerProps> = ({
           chatHistory: session.chatHistory,
           playgrounds: session.playgrounds,
           theme: session.theme,
-          model: session.model
+          model: session.model,
+          syllabus: session.syllabus,
+          syllabusGallery: session.syllabusGallery
         }));
 
         newIndex.push(metadata);
@@ -222,7 +230,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   const handleSetupAutoSave = async () => {
       try {
           if (!('showDirectoryPicker' in window)) {
-              alert("Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.");
+              alert("Your browser does not support the File System Access API.");
               return;
           }
           // @ts-ignore
@@ -243,7 +251,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
       downloadBlob(new Blob([readme], { type: 'text/markdown' }), 'README_CLEANUP.md');
   };
 
-  // Grouping Logic
   const groupedSessions = useMemo(() => {
     const groups: { [key: string]: SavedSessionMetadata[] } = { 'Ungrouped': [] };
     savedSessions.forEach(session => {
@@ -263,9 +270,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Session Library & Settings">
       <div className="flex flex-col h-[70vh]">
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-             {/* Local Browser Storage */}
             <div>
                <h4 className="font-bold text-sm mb-2 text-blue-800 dark:text-blue-300">Browser Storage</h4>
                <div className="flex gap-2 mb-2">
@@ -299,7 +304,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
               </div>
             </div>
 
-            {/* Auto Save Config */}
             <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-lg border border-orange-100 dark:border-orange-900/30 flex flex-col justify-between">
                 <div>
                     <div className="flex justify-between items-center mb-2">
@@ -354,7 +358,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
             </div>
         </div>
 
-        {/* Scrollable List */}
         <div className="flex-1 overflow-y-auto pr-2">
             {savedSessions.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
@@ -386,9 +389,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
                             )}
                             {group === 'Ungrouped' && groupedSessions[group].length > 0 && (
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                     {groupKeys.length > 1 && (
-                                         <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 text-xs font-bold text-gray-500 uppercase">Unsorted</div>
-                                     )}
                                      {groupedSessions[group].map(session => (
                                         <SessionRow 
                                             key={session.id} 
@@ -405,7 +405,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
             )}
         </div>
         
-        {/* Footer: Audio Settings (Not Eyecatching) */}
         <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-3">
              <span className="text-xs text-gray-400">Detected: {browserName}</span>
              <div className="flex items-center gap-2">
@@ -438,7 +437,7 @@ const SessionRow: React.FC<{
             <span className="font-semibold text-gray-800 dark:text-gray-200">{session.name}</span>
             <div className="text-xs text-gray-400 flex gap-3">
                 <span>{new Date(session.timestamp).toLocaleDateString()}</span>
-                <span></span>
+                <span>•</span>
                 <span>{session.topicCount} Topics</span>
             </div>
         </div>
