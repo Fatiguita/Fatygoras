@@ -164,7 +164,7 @@ export const generatePlayground = async (
   
   let contextBlock = "";
   if (mainTopic) contextBlock += `\nMAIN COURSE CONTEXT: ${mainTopic}\n`;
-  if (whiteboardSvg) contextBlock += `\nREFERENCE VISUAL (SVG Code) - Use this to style or structure the playground similarly:\n${whiteboardSvg}\n`;
+  if (whiteboardSvg) contextBlock += `\nREFERENCE VISUAL (SVG Code) - this will give you context of what user specifically saw on whiteboard:\n${whiteboardSvg}\n`;
 
   const prompt = `${contextBlock}\nCreate a practice playground for: ${topic}`;
 
