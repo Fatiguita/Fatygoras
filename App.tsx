@@ -8,6 +8,7 @@ import ApiLogPanel from './components/ApiLogPanel';
 import SessionManager from './components/SessionManager';
 import Syllabus from './components/Syllabus';
 import LevelTest from './components/LevelTest';
+import LoadingTip from './components/LoadingTip'; // New Import
 import { 
   AppTheme, 
   GeminiModel, 
@@ -589,6 +590,14 @@ const App: React.FC = () => {
 
   return (
     <div className={`h-[100dvh] flex flex-col font-sans transition-colors duration-300 overflow-hidden ${getBackgroundStyle()}`}>
+      {/* 
+         OVERLAY FIX FOR RESIZING:
+         This invisible overlay captures mouse events globally when resizing, preventing iframes from stealing them.
+      */}
+      {isResizing && (
+        <div className="fixed inset-0 z-[9999] cursor-ew-resize bg-transparent" />
+      )}
+
       <Header 
         theme={theme} setTheme={setTheme}
         model={model} setModel={setModel}
@@ -616,13 +625,19 @@ const App: React.FC = () => {
                     <>
                         <div className="mb-12">
                             <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">What would you like to learn today?</label>
-                            <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden relative">
                                 <div className="flex flex-col relative bg-white dark:bg-gray-900 transition-shadow shadow-inner">
                                     <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder="Explain Quantum Physics..." className="w-full h-32 p-4 bg-transparent border-none focus:ring-0 resize-none text-base sm:text-lg outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" disabled={isGenerating} />
                                     <div className="flex justify-end p-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
                                         <Button onClick={() => handleGenerate()} disabled={isGenerating || !input.trim()} size="md">{isGenerating ? "Thinking..." : "Create Lesson"}</Button>
                                     </div>
                                 </div>
+                                {/* Loading Tip Overlay */}
+                                {isGenerating && (
+                                    <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-20 flex items-center justify-center p-4">
+                                        <LoadingTip />
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="space-y-16">
@@ -738,9 +753,19 @@ const PlaygroundContent: React.FC<{
 
     return (
     <div className="flex-1 overflow-hidden min-w-[300px] h-full flex flex-col">
-        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-             <button onClick={() => setActivePlaygroundTab('practice')} className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider ${activePlaygroundTab === 'practice' ? 'bg-white dark:bg-gray-900 border-t-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Practice Apps</button>
-             <button onClick={() => setActivePlaygroundTab('test')} className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider ${activePlaygroundTab === 'test' ? 'bg-white dark:bg-gray-900 border-t-2 border-orange-500 text-orange-600' : 'text-gray-500'}`}>Level Tests</button>
+        {/* ADDED: Main Close Button for Panel Logic (Fix Issue 1) */}
+        <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 pr-2">
+            <div className="flex flex-1">
+                <button onClick={() => setActivePlaygroundTab('practice')} className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider ${activePlaygroundTab === 'practice' ? 'bg-white dark:bg-gray-900 border-t-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Practice Apps</button>
+                <button onClick={() => setActivePlaygroundTab('test')} className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider ${activePlaygroundTab === 'test' ? 'bg-white dark:bg-gray-900 border-t-2 border-orange-500 text-orange-600' : 'text-gray-500'}`}>Level Tests</button>
+            </div>
+            <button 
+                onClick={onClose} 
+                className="p-1.5 mx-1 text-gray-500 hover:text-red-600 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                title="Close Playground Panel"
+            >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
         </div>
 
         {visiblePlaygrounds.length > 0 && (
@@ -768,7 +793,7 @@ const PlaygroundContent: React.FC<{
         ) : (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                 <p className="text-gray-400 mb-4">No active app selected.</p>
-                <Button variant="ghost" size="sm" onClick={onClose}>Close Panel</Button>
+                <LoadingTip className="max-w-xs" /> 
             </div>
         )}
     </div>
