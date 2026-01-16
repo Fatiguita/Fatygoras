@@ -480,6 +480,13 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    - \`style="cursor: pointer"\`
    
    **DO NOT include <script> tags.** The app handles audio logic centrally.
+
+### OUTPUT STRUCTURE
+For every topic generated:
+1. Brief textual introduction.
+2. The SVG Whiteboard (in \`\`\`svg\`\`\`).
+3. Detailed explanation (suggest a suitable practice project).
+
 `,IC=`
 You are a creative coding assistant. Your task is to generate a self-contained HTML/JS/CSS snippet that serves as an interactive "Practice Playground" for a student.
 
