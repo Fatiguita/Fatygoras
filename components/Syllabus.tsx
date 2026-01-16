@@ -6,7 +6,7 @@ import Select from './Select';
 interface SyllabusProps {
   data: SyllabusData | null;
   gallery: SyllabusData[];
-  onGenerate: (topic: string, level: CourseLevel) => void;
+  onGenerate: (topic: string, level: CourseLevel, description?: string) => void;
   onImportLevel: (topics: string[], mainTopic?: string) => void;
   onDelete: (id: string) => void;
   onSelect: (syllabus: SyllabusData) => void;
@@ -25,6 +25,10 @@ const Syllabus: React.FC<SyllabusProps> = ({
   const [topicInput, setTopicInput] = useState('');
   const [selectedLevel, setSelectedLevel] = useState<CourseLevel>('Introduction');
   const [showGallery, setShowGallery] = useState(true);
+  
+  // New State for Description
+  const [includeDescription, setIncludeDescription] = useState(false);
+  const [descriptionInput, setDescriptionInput] = useState('');
 
   const LEVELS: { label: string, value: CourseLevel }[] = [
     { label: 'Introduction', value: 'Introduction' },
@@ -35,7 +39,13 @@ const Syllabus: React.FC<SyllabusProps> = ({
   ];
 
   const handleGenerate = () => {
-    if (topicInput.trim()) onGenerate(topicInput, selectedLevel);
+    if (topicInput.trim()) {
+        onGenerate(
+            topicInput, 
+            selectedLevel, 
+            includeDescription ? descriptionInput : undefined
+        );
+    }
   };
 
   return (
@@ -53,7 +63,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
                       value={topicInput}
                       onChange={(e) => setTopicInput(e.target.value)}
                       placeholder="Enter a topic (e.g., Python, History, Baking)"
-                      className="flex-[2] px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 outline-none"
+                      className="flex-[2] px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                     />
                     <div className="flex-1 min-w-[150px]">
                          <Select 
@@ -64,7 +74,30 @@ const Syllabus: React.FC<SyllabusProps> = ({
                          />
                     </div>
                  </div>
-                 <Button onClick={handleGenerate} disabled={isLoading || !topicInput.trim()} className="w-full sm:w-auto self-end">
+
+                 {/* New Optional Description Checkbox & Input */}
+                 <div className="flex flex-col items-start gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-300 select-none hover:text-purple-500 transition-colors">
+                        <input 
+                            type="checkbox" 
+                            checked={includeDescription} 
+                            onChange={(e) => setIncludeDescription(e.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <span>Add specific context or description (Optional)</span>
+                    </label>
+
+                    <div className={`w-full overflow-hidden transition-all duration-300 ease-in-out ${includeDescription ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <textarea
+                            value={descriptionInput}
+                            onChange={(e) => setDescriptionInput(e.target.value)}
+                            placeholder="E.g., Focus on data science libraries like Pandas and NumPy..."
+                            className="w-full h-24 p-3 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 focus:ring-1 focus:ring-purple-500 outline-none resize-none"
+                        />
+                    </div>
+                 </div>
+
+                 <Button onClick={handleGenerate} disabled={isLoading || !topicInput.trim()} className="w-full sm:w-auto self-end mt-2">
                    {isLoading ? 'Designing Curriculum...' : 'Create Syllabus'}
                  </Button>
              </div>
