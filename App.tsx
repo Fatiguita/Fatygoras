@@ -8,7 +8,7 @@ import ApiLogPanel from './components/ApiLogPanel';
 import SessionManager from './components/SessionManager';
 import Syllabus from './components/Syllabus';
 import LevelTest from './components/LevelTest';
-import LoadingTip from './components/LoadingTip'; // New Import
+import LoadingTip from './components/LoadingTip';
 import { 
   AppTheme, 
   GeminiModel, 
@@ -542,7 +542,7 @@ const App: React.FC = () => {
      }
   };
 
-  const handleGenerateSyllabus = async (topic: string, level: CourseLevel) => {
+  const handleGenerateSyllabus = async (topic: string, level: CourseLevel, description?: string) => {
       if (!apiKey) { alert("Please enter API Key"); return; }
       setIsGeneratingSyllabus(true);
       const normalizedTopic = topic.trim().toLowerCase();
@@ -553,7 +553,7 @@ const App: React.FC = () => {
       }
 
       try {
-          const result = await generateSyllabus(apiKey, topic, level, model, addLog, context);
+          const result = await generateSyllabus(apiKey, topic, level, model, addLog, context, description);
           const newSyllabus: SyllabusData = { ...result, id: Date.now().toString(), timestamp: Date.now() };
           setSyllabus(newSyllabus);
           setSyllabusGallery(prev => [newSyllabus, ...prev]);
@@ -658,7 +658,17 @@ const App: React.FC = () => {
                         </div>
                     </>
                 )}
-                {activeTab === Tab.SYLLABUS && <Syllabus data={syllabus} gallery={syllabusGallery} onGenerate={handleGenerateSyllabus} isLoading={isGeneratingSyllabus} onImportLevel={(topics, mainTopic) => handleGenerate(topics.join(", "), mainTopic)} onDelete={(id) => setSyllabusGallery(prev => prev.filter(s => s.id !== id))} onSelect={setSyllabus} />}
+                {activeTab === Tab.SYLLABUS && (
+                    <Syllabus 
+                        data={syllabus} 
+                        gallery={syllabusGallery} 
+                        onGenerate={handleGenerateSyllabus} 
+                        isLoading={isGeneratingSyllabus} 
+                        onImportLevel={(topics, mainTopic) => handleGenerate(topics.join(", "), mainTopic)} 
+                        onDelete={(id) => setSyllabusGallery(prev => prev.filter(s => s.id !== id))} 
+                        onSelect={setSyllabus} 
+                    />
+                )}
                 {activeTab === Tab.LEVEL_TEST && <LevelTest onStartTest={handleCreateLevelTest} isGenerating={isGeneratingTest} results={testResults} />}
             </div>
         </main>
