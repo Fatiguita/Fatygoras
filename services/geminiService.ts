@@ -215,14 +215,24 @@ export const generateSyllabus = async (
   level: string, 
   modelId: string, 
   logger?: Logger,
-  context?: string
+  context?: string,
+  userDescription?: string
 ): Promise<SyllabusData> => {
   const ai = getClient(apiKey);
   
-  if (logger) logger({ type: 'request', source: 'generateSyllabus', summary: `Generating syllabus for ${topic} at ${level}`, details: { context } });
+  if (logger) logger({ type: 'request', source: 'generateSyllabus', summary: `Generating syllabus for ${topic} at ${level}`, details: { context, userDescription } });
 
   try {
-    const prompt = `Create a syllabus for: ${topic}. Level: ${level}.${context ? `\n\nCONTEXT FROM OTHER LEVELS:\n${context}` : ''}`;
+    let prompt = `Create a syllabus for: ${topic}. Level: ${level}.`;
+    
+    // Add specific user description/focus if provided
+    if (userDescription) {
+        prompt += `\nSPECIFIC USER FOCUS/DESCRIPTION: "${userDescription}". (Ensure the syllabus strictly adheres to this focus).`;
+    }
+
+    if (context) {
+        prompt += `\n\nCONTEXT FROM OTHER LEVELS:\n${context}`;
+    }
 
     const response = await ai.models.generateContent({
       model: modelId,
