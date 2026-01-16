@@ -49,11 +49,8 @@ You are an advanced AI Teacher Environment. Your primary goal is to explain conc
 
    **DO NOT write any JavaScript or <script> tags inside the SVG.** The application handles the audio logic automatically based on these attributes.
 
-### OUTPUT STRUCTURE
-For the main response:
-1. Brief textual introduction.
-2. The SVG Whiteboard (in \`\`\`svg\`\`\`).
-3. Detailed explanation.
+
+ Detailed explanation field in the response (also here, suggest a suitable practice project).
 `;
 
 export const BATCH_TEACHER_SYSTEM_PROMPT = `
@@ -97,6 +94,13 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    - \`style="cursor: pointer"\`
    
    **DO NOT include <script> tags.** The app handles audio logic centrally.
+
+### OUTPUT STRUCTURE
+For every topic generated:
+1. Brief textual introduction.
+2. The SVG Whiteboard (in \`\`\`svg\`\`\`).
+3. Detailed explanation (suggest a suitable practice project).
+
 `;
 
 export const PLAYGROUND_SYSTEM_PROMPT = `
