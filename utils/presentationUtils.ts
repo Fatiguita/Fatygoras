@@ -8,55 +8,85 @@ export const generateId = (): string => Math.random().toString(36).substr(2, 9);
 
 /**
  * Parses an SVG string to extract narrative segments for presentation.
- * It looks for 'data-speech' attributes (which Fatygoras AI already adds) or 'data-lang',
- * and assigns unique IDs for highlighting during narration.
+ * Uses DOMParser (XML) to find specific nodes. 
+ * Includes robustness fixes for malformed XML entities (e.g. unescaped '&').
  *
  * @param {string} rawSvg The raw SVG content.
  * @param {string} defaultTitle A fallback title/explanation to use if no specific speech data is found.
  * @returns {{ content: string; segments: NarrativeSegment[]; fullText: string }} An object containing the processed SVG, extracted segments, and concatenated full text.
  */
 export const parseSVGForNarrative = (rawSvg: string, defaultTitle: string): { content: string; segments: NarrativeSegment[]; fullText: string } => {
+  // 1. Sanitize the SVG string before strict XML parsing
+  // The AI often outputs raw '&' (ampersand) which is valid in HTML but invalid in XML (must be &amp;).
+  // This regex finds '&' that is NOT followed by a valid XML entity sequence (e.g., &#x...; or &name;).
+  const sanitizedSvg = rawSvg.replace(/&(?!(?:[a-z]+|#[0-9]+|#x[0-9a-f]+);)/gi, '&amp;');
+
   const parser = new DOMParser();
-  const doc = parser.parseFromString(rawSvg, "image/svg+xml");
+  const doc = parser.parseFromString(sanitizedSvg, "image/svg+xml");
   
-  // Query for elements with either data-speech (Fatygoras standard) or data-lang
+  // 2. Check for Parser Errors
+  // If the XML parser encountered an error, it inserts a <parsererror> element.
+  const parserError = doc.querySelector("parsererror");
+  if (parserError) {
+      console.warn("Presentation Mode: SVG XML Parsing failed (likely bad entities). Falling back to raw HTML display.", parserError.textContent);
+      
+      // Fallback Strategy:
+      // If parsing fails, we cannot extract individual segments, but we still want to display the SVG.
+      // We'll return the *sanitized* SVG content directly for React to render (it's more forgiving via dangerouslySetInnerHTML),
+      // and create a single 'root-svg' segment for the entire slide's default narration.
+      let responsiveFallbackSvgContent = sanitizedSvg
+          .replace(/width=["']?(\d+(\.\d+)?)["']?/gi, '')
+          .replace(/height=["']?(\d+(\.\d+)?)["']?/gi, '')
+          .replace(/<svg/i, '<svg style="width:100%; height:100%; display:block;"');
+
+      const fallbackSegment: NarrativeSegment = { id: 'root-svg', text: defaultTitle, lang: 'en-US' };
+      return {
+          content: responsiveFallbackSvgContent,
+          segments: [fallbackSegment],
+          fullText: defaultTitle // The default narrative for this unparseable slide
+      };
+  }
+
+  // 3. Normal Extraction Logic (if parsing was successful)
+  // Query for elements that contain speech data (Fatygoras AI uses 'data-speech' primarily).
   const elements = doc.querySelectorAll('[data-speech], [data-lang]');
   const segments: NarrativeSegment[] = [];
   
   if (elements.length > 0) {
       elements.forEach((el, index) => {
-          // 1. Ensure each interactive element has an ID for highlighting.
-          // If no ID exists, generate one.
+          // Ensure each interactive element has an ID for highlighting.
+          // If no ID exists, generate one to ensure it can be targeted by CSS/JS.
           let id = el.getAttribute('id');
           if (!id) {
               id = `narrative-seg-${index}-${generateId()}`;
               el.setAttribute('id', id);
           }
 
-          // 2. Extract Text: Prefer data-speech, then data-lang, then textContent.
+          // Extract Text: Prefer `data-speech`, then `data-lang`, then the element's `textContent`.
           const text = (el.getAttribute('data-speech') || el.getAttribute('data-lang') || el.textContent || "").trim();
           
-          // 3. Extract Language: Prefer data-lang, then lang attribute.
+          // Extract Language: Prefer `data-lang`, then the standard `lang` attribute.
           const lang = el.getAttribute('data-lang') || el.getAttribute('lang') || undefined;
 
-          if (text) {
+          if (text) { // Only add if there's actual text to speak
               segments.push({ id, text, lang });
           }
       });
   } else {
-      // Fallback: If no specific speech attributes are found, create a single segment
-      // using the default title (typically the whiteboard topic and a snippet of its explanation).
-      // This segment will be treated as a "static" slide, taking its duration from `staticSlideDuration`.
+      // Fallback for SVGs that parse correctly but have NO `data-speech` or `data-lang` attributes.
+      // In this case, we treat the entire slide as a "static" slide,
+      // using the provided `defaultTitle` as its narrative, which will take the `staticSlideDuration`.
       if (defaultTitle) {
           segments.push({ id: 'root-svg', text: defaultTitle, lang: 'en-US' }); // Default to en-US for fallback
       }
   }
 
-  // 3. Serialize the modified SVG (with potentially new IDs) back to a string.
+  // 4. Serialize the potentially modified SVG (with new IDs) back to a string.
   const serializer = new XMLSerializer();
   let newSvgContent = serializer.serializeToString(doc.documentElement);
 
-  // 4. Force the SVG to be responsive by removing explicit width/height and applying inline styles.
+  // 5. Force the SVG to be responsive for display.
+  // Removes explicit width/height attributes and applies inline styles for flex behavior.
   newSvgContent = newSvgContent
       .replace(/width=["']?(\d+(\.\d+)?)["']?/gi, '')
       .replace(/height=["']?(\d+(\.\d+)?)["']?/gi, '')
@@ -86,8 +116,10 @@ export const convertWhiteboardsToSlides = (whiteboards: WhiteboardData[]): Slide
             id: wb.id,
             name: wb.topic, // Use whiteboard topic as slide name
             svgContent: content,
+            // The `narrativeSegments` here will either be extracted from the SVG or be a single 'root-svg' fallback.
             narrativeSegments: segments,
-            fullNarrative: fullText || wb.explanation // Prefer generated fullText, fallback to whiteboard explanation
+            // The `fullNarrative` for display should prefer the concatenated segments, but fallback to original explanation.
+            fullNarrative: fullText.trim() || wb.explanation 
         };
     });
 };
@@ -110,7 +142,7 @@ export const estimateDuration = (
     staticDuration: number = 10000, 
     minDuration: number = 5000
 ): number => {
-    // 1. If it's a fallback segment (meaning the slide itself has no specific audio tags),
+    // 1. If it's a fallback segment (meaning the slide itself has no specific audio tags extracted),
     // its duration is solely determined by the user's `staticDuration` setting.
     if (isFallback) {
         return staticDuration;
@@ -134,5 +166,7 @@ export const estimateDuration = (
     
     // The final duration for a segment with text is the maximum of:
     //    (calculated_duration + buffer)  AND  user_defined_minDuration.
+    // Note: minDuration here acts as a floor for *individual segment* durations,
+    // not the overall slide duration (which is handled in usePresentationTTS).
     return Math.max(durationMs + bufferMs, minDuration); 
 };
