@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -63,4 +62,30 @@
 
 .audio-trigger:active {
   transform: scale(0.98);
+}
+
+/* Dynamic Highlight Effect for Presentation Mode */
+/* This CSS variable will be set dynamically by PresenterMode.tsx based on user settings */
+:root {
+  --highlight-color: #f59e0b; /* Default Amber, can be overridden */
+}
+
+.svg-highlight-active {
+  filter: drop-shadow(0 0 8px var(--highlight-color)) drop-shadow(0 0 15px var(--highlight-color));
+  stroke: var(--highlight-color) !important;
+  stroke-width: 3px !important;
+  transition: all 0.3s ease-out;
+  position: relative;
+  z-index: 100; /* Ensure it's above other SVG elements */
+}
+
+/* Specific styling for text elements when highlighted */
+text.svg-highlight-active {
+  fill: var(--highlight-color) !important;
+  stroke: none !important; /* Ensure no conflicting stroke */
+}
+
+/* Specific styling for shape elements when highlighted */
+path.svg-highlight-active, rect.svg-highlight-active, circle.svg-highlight-active {
+  fill-opacity: 0.9; /* Slightly reduce fill opacity to show glow better */
 }
