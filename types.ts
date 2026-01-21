@@ -116,3 +116,33 @@ export interface SavedSessionMetadata {
   timestamp: number;
   topicCount: number;
 }
+
+// --- NEW: PRESENTATION TYPES ---
+
+export interface NarrativeSegment {
+  id: string;
+  text: string;
+  lang?: string; // Added language support
+}
+
+export interface SlideData {
+  id: string;
+  name: string;
+  svgContent: string;
+  narrativeSegments: NarrativeSegment[]; 
+  fullNarrative: string;
+}
+
+export interface PlayerSettings {
+  voiceURI: string | null;
+  rate: number;
+  pitch: number;
+  themeColor: string;
+  highlightColor: string;
+  autoPlay: boolean;
+  pacing: number; // Delay in ms between segments
+  staticSlideDuration: number; // NEW: Duration for slides with NO text/audio tags
+  minSlideDuration: number;    // NEW: Minimum duration for ANY slide, overriding short text audio
+}
+
+export type PlayState = 'idle' | 'playing' | 'paused';
