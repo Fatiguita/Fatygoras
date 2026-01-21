@@ -4,6 +4,7 @@ import { THEME_OPTIONS, MODEL_OPTIONS } from '../constants';
 import Select from './Select';
 import Input from './Input';
 import Button from './Button';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
   theme: AppTheme;
@@ -20,7 +21,9 @@ interface HeaderProps {
   playgroundOpen: boolean;
   togglePlayground: () => void;
   hasPlaygroundCode: boolean;
-  onResumeAutoSave?: () => void; // New prop for resuming auto-save
+  onResumeAutoSave?: () => void;
+  isNavVisible: boolean;
+  onToggleNav: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -34,15 +37,16 @@ const Header: React.FC<HeaderProps> = ({
   playgroundOpen,
   togglePlayground,
   hasPlaygroundCode,
-  onResumeAutoSave
+  onResumeAutoSave,
+  isNavVisible,
+  onToggleNav
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showApiKey, setShowApiKey] = useState(!apiKey);
 
-  // Auto-hide key input if key is present, but allow toggling
   useEffect(() => {
     if (apiKey && showApiKey && !isMenuOpen) {
-       // Optional: could auto-hide, but let's respect user choice if they opened it manually
+       // Optional logic
     }
   }, [apiKey]);
 
@@ -61,7 +65,6 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-              {/* Primary Action always visible if active */}
               {hasPlaygroundCode && !playgroundOpen && (
                 <Button size="sm" onClick={togglePlayground} className="animate-pulse bg-green-600 hover:bg-green-700 text-white border-none text-xs sm:text-sm">
                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
@@ -69,7 +72,6 @@ const Header: React.FC<HeaderProps> = ({
                 </Button>
               )}
               
-              {/* Auto-Save Resume Button */}
               {onResumeAutoSave && (
                   <Button 
                     size="sm" 
@@ -82,7 +84,6 @@ const Header: React.FC<HeaderProps> = ({
                   </Button>
               )}
 
-              {/* API Key Toggle */}
               <button 
                  onClick={() => setShowApiKey(!showApiKey)}
                  className={`p-2 rounded-lg transition-colors ${!apiKey ? 'text-red-500 animate-pulse' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
@@ -91,7 +92,14 @@ const Header: React.FC<HeaderProps> = ({
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
               </button>
 
-              {/* Mobile Menu Toggle */}
+              <button 
+                 onClick={onToggleNav}
+                 className={`p-2 rounded-lg transition-colors ${isNavVisible ? 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800' : 'text-blue-500 bg-blue-50 dark:bg-blue-900/20'}`}
+                 title={isNavVisible ? "Collapse Navigation Tabs" : "Expand Navigation Tabs"}
+              >
+                  {isNavVisible ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+
               <button 
                 className="lg:hidden p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -101,7 +109,6 @@ const Header: React.FC<HeaderProps> = ({
                 </svg>
               </button>
 
-              {/* Desktop Controls */}
               <div className="hidden lg:flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2 mr-4 ml-2">
                       <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Storage</label>
@@ -142,7 +149,6 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Mobile Menu Dropdown */}
         {isMenuOpen && (
           <div className="lg:hidden mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4 animate-fade-in">
              <div className="flex items-center justify-between">
@@ -192,7 +198,6 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         )}
         
-        {/* API Key Input - Conditionally Visible */}
         {showApiKey && (
             <div className="mt-2 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 animate-fade-in">
                 <div className="flex flex-col sm:flex-row items-center gap-2">
