@@ -9,7 +9,7 @@ import SessionManager from './components/SessionManager';
 import Syllabus from './components/Syllabus';
 import LevelTest from './components/LevelTest';
 import LoadingTip from './components/LoadingTip';
-import { PresenterMode } from './components/Presenter/PresenterMode'; // IMPORT THIS
+import { PresenterMode } from './components/Presenter/PresenterMode';
 import { 
   AppTheme, 
   GeminiModel, 
@@ -43,7 +43,7 @@ enum Tab {
   CLASSROOM = 'classroom',
   SYLLABUS = 'syllabus',
   LEVEL_TEST = 'level_test',
-  PRESENTATION = 'presentation' // ADD THIS NEW TAB
+  PRESENTATION = 'presentation'
 }
 
 const App: React.FC = () => {
@@ -70,7 +70,6 @@ const App: React.FC = () => {
   const autoSaveTimerRef = useRef<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>(Tab.CLASSROOM);
-  // NEW: State for controlling visibility of the main navigation bar
   const [isNavVisible, setIsNavVisible] = useState(true);
   
   // Content
@@ -416,8 +415,8 @@ const App: React.FC = () => {
           topic, 
           model, 
           addLog, 
-          relatedWB?.svgContent, // Pass SVG
-          mainTopicContext       // Pass Context
+          relatedWB?.svgContent,
+          mainTopicContext
       );
       setPlaygrounds(prev => prev.map(p => p.id === tempId ? { ...codeData, status: 'ready', id: tempId, type: 'practice', model: model } : p));
     } catch (error) {
@@ -473,7 +472,7 @@ const App: React.FC = () => {
               quizDbJson, 
               selectedModel, 
               addLog,
-              topic // Main Topic Context
+              topic
           );
           
           setPlaygrounds(prev => prev.map(p => p.id === tempId ? { ...testApp, status: 'ready', id: tempId, type: 'test', relatedTopic: topic, model: selectedModel } : p));
@@ -528,7 +527,6 @@ const App: React.FC = () => {
      setPlaygrounds(prev => prev.map(p => p.id === pg.id ? { ...p, status: 'loading' } : p));
      try {
          const topic = pg.description.replace('Playground: ', '');
-         // Find SVG again for retry
          const relatedWB = whiteboards.find(w => w.topic === topic);
          const mainTopicContext = relatedWB ? relatedWB.explanation.substring(0, 50) + "..." : input;
 
@@ -594,10 +592,6 @@ const App: React.FC = () => {
 
   return (
     <div className={`h-[100dvh] flex flex-col font-sans transition-colors duration-300 overflow-hidden ${getBackgroundStyle()}`}>
-      {/* 
-         OVERLAY FIX FOR RESIZING:
-         This invisible overlay captures mouse events globally when resizing, preventing iframes from stealing them.
-      */}
       {isResizing && (
         <div className="fixed inset-0 z-[9999] cursor-ew-resize bg-transparent" />
       )}
@@ -614,20 +608,17 @@ const App: React.FC = () => {
         togglePlayground={() => setPlaygroundPanelOpen(!playgroundPanelOpen)}
         hasPlaygroundCode={playgrounds.length > 0}
         onResumeAutoSave={pendingResumeHandle ? handleResumeAutoSave : undefined}
-        // NEW: Pass navigation visibility control props to Header
         isNavVisible={isNavVisible}
         onToggleNav={() => setIsNavVisible(!isNavVisible)}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
         <main className={`flex-1 overflow-y-auto w-full scroll-smooth flex flex-col ${playgroundPanelOpen ? 'hidden md:flex' : 'flex'}`}>
-            {/* NEW: Collapsible container for the main navigation bar */}
             <div className={`flex-shrink-0 w-full bg-white/50 dark:bg-gray-900/50 backdrop-blur sticky top-0 z-10 transition-all duration-300 ease-in-out overflow-hidden ${isNavVisible ? 'max-h-16 opacity-100 border-b border-gray-200 dark:border-gray-700' : 'max-h-0 opacity-0 border-none'}`}>
                 <div className="flex overflow-x-auto no-scrollbar">
                     <button onClick={() => setActiveTab(Tab.CLASSROOM)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.CLASSROOM ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}>Classroom</button>
                     <button onClick={() => setActiveTab(Tab.SYLLABUS)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.SYLLABUS ? 'border-b-2 border-purple-500 text-purple-600 dark:text-purple-400' : 'text-gray-500 hover:text-gray-700'}`}>Syllabus Architect</button>
                     <button onClick={() => setActiveTab(Tab.LEVEL_TEST)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.LEVEL_TEST ? 'border-b-2 border-orange-500 text-orange-600 dark:text-orange-400' : 'text-gray-500 hover:text-gray-700'}`}>Level Test</button>
-                    {/* NEW TAB BUTTON FOR PRESENTATION MODE */}
                     <button 
                         onClick={() => setActiveTab(Tab.PRESENTATION)} 
                         className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.PRESENTATION ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700'}`}
@@ -638,8 +629,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Main content area based on activeTab */}
-            {/* The PresenterMode should take over the full content space, hence absolute positioning */}
-            <div className="max-w-5xl mx-auto px-4 py-8 pb-32 w-full flex-grow relative"> {/* Added relative to parent for absolute children */}
+            <div className="max-w-5xl mx-auto px-4 py-8 pb-32 w-full flex-grow relative">
                 {activeTab === Tab.CLASSROOM && (
                     <>
                         <div className="mb-12">
@@ -651,7 +641,6 @@ const App: React.FC = () => {
                                         <Button onClick={() => handleGenerate()} disabled={isGenerating || !input.trim()} size="md">{isGenerating ? "Thinking..." : "Create Lesson"}</Button>
                                     </div>
                                 </div>
-                                {/* Loading Tip Overlay */}
                                 {isGenerating && (
                                     <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-20 flex items-center justify-center p-4">
                                         <LoadingTip />
@@ -690,7 +679,6 @@ const App: React.FC = () => {
                 )}
                 {activeTab === Tab.LEVEL_TEST && <LevelTest onStartTest={handleCreateLevelTest} isGenerating={isGeneratingTest} results={testResults} />}
                 
-                {/* NEW PRESENTATION TAB CONTENT */}
                 {activeTab === Tab.PRESENTATION && (
                     <div className="absolute inset-0 z-20 overflow-hidden"> 
                        <PresenterMode initialWhiteboards={whiteboards} />
@@ -734,8 +722,17 @@ const App: React.FC = () => {
         )}
       </div>
 
-      <ChatBot isOpen={isChatOpen} toggleOpen={() => setIsChatOpen(!isChatOpen)} apiKey={apiKey} model={model} history={chatHistory} setHistory={setChatHistory} logger={addLog} context={chatContext} />
-      <ApiLogPanel logs={apiLogs} isOpen={isAdvancedModeOpen} onClose={() => setIsAdvancedModeOpen(false)} onClear={() => setApiLogs([])} />
+      {/* CONDITIONAL RENDERING: Only show ChatBot if NOT in PRESENTATION mode */}
+      {activeTab !== Tab.PRESENTATION && (
+        <ChatBot isOpen={isChatOpen} toggleOpen={() => setIsChatOpen(!isChatOpen)} apiKey={apiKey} model={model} history={chatHistory} setHistory={setChatHistory} logger={addLog} context={chatContext} />
+      )}
+      
+      <ApiLogPanel 
+        logs={apiLogs} 
+        isOpen={isAdvancedModeOpen} 
+        onClose={() => setIsAdvancedModeOpen(false)} 
+        onClear={() => setApiLogs([])} 
+      />
       
       <SessionManager 
         isOpen={isSessionManagerOpen}
@@ -789,7 +786,6 @@ const PlaygroundContent: React.FC<{
 
     return (
     <div className="flex-1 overflow-hidden min-w-[300px] h-full flex flex-col">
-        {/* ADDED: Main Close Button for Panel Logic (Fix Issue 1) */}
         <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 pr-2">
             <div className="flex flex-1">
                 <button onClick={() => setActivePlaygroundTab('practice')} className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider ${activePlaygroundTab === 'practice' ? 'bg-white dark:bg-gray-900 border-t-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Practice Apps</button>
