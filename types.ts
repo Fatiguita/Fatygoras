@@ -2,8 +2,19 @@ export enum AppTheme {
   LIGHT = 'light',
   DARK = 'dark',
   CHALKBOARD = 'chalkboard',
-  BLUEPRINT = 'blueprint'
+  BLUEPRINT = 'blueprint',
+  NARUTO = 'naruto',
+  POKEMON = 'pokemon',
+  MATRIX = 'matrix',
+  NEON = 'neon',
+  SAKURA = 'sakura',
+  WINDOWS_XP = 'windows-xp',
+  NARUTO_FIRE = 'naruto-fire',
+  L_DEATHNOTE = 'l-deathnote',
+  RETRO_ARCADE = 'retro-arcade',
+  SOLARIZED = 'solarized'
 }
+
 
 export enum GeminiModel {
   GEMINI_3_FLASH = 'gemini-3-flash-preview',
@@ -129,7 +140,7 @@ export interface SlideData {
   id: string;
   name: string;
   svgContent: string;
-  narrativeSegments: NarrativeSegment[]; 
+  narrativeSegments: NarrativeSegment[];
   fullNarrative: string;
 }
 
