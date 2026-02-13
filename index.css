@@ -7,13 +7,16 @@
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #888;
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
@@ -24,14 +27,22 @@
   border-radius: 0.5rem;
   overflow-x: auto;
 }
+
 .dark .markdown-body pre {
   background-color: #1f2937;
 }
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
@@ -40,13 +51,15 @@
 
 /* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  display: none;
 }
 
 /* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 /* Interactive SVG Elements */
@@ -67,7 +80,8 @@
 /* Dynamic Highlight Effect for Presentation Mode */
 /* This CSS variable will be set dynamically by PresenterMode.tsx based on user settings */
 :root {
-  --highlight-color: #f59e0b; /* Default Amber, can be overridden */
+  --highlight-color: #f59e0b;
+  /* Default Amber, can be overridden */
 }
 
 .svg-highlight-active {
@@ -76,16 +90,350 @@
   stroke-width: 3px !important;
   transition: all 0.3s ease-out;
   position: relative;
-  z-index: 100; /* Ensure it's above other SVG elements */
+  z-index: 100;
+  /* Ensure it's above other SVG elements */
 }
 
 /* Specific styling for text elements when highlighted */
 text.svg-highlight-active {
   fill: var(--highlight-color) !important;
-  stroke: none !important; /* Ensure no conflicting stroke */
+  stroke: none !important;
+  /* Ensure no conflicting stroke */
 }
 
 /* Specific styling for shape elements when highlighted */
-path.svg-highlight-active, rect.svg-highlight-active, circle.svg-highlight-active {
-  fill-opacity: 0.9; /* Slightly reduce fill opacity to show glow better */
+path.svg-highlight-active,
+rect.svg-highlight-active,
+circle.svg-highlight-active {
+  fill-opacity: 0.9;
+  /* Slightly reduce fill opacity to show glow better */
+}
+
+/* --- Theme customizations for new themes --- */
+
+/* Naruto: warm orange tones */
+html.naruto,
+html.naruto body {
+  background-color: #fff7ed;
+  color: #422913;
+}
+
+html.naruto {
+  --highlight-color: #fb923c;
+}
+
+html.naruto header {
+  background: linear-gradient(90deg, rgba(255, 243, 224, 0.9), rgba(255, 236, 219, 0.8)) !important;
+}
+
+/* Pokémon: bright, playful */
+html.pokemon,
+html.pokemon body {
+  background-color: #fffef6;
+  color: #1f2937;
+}
+
+html.pokemon {
+  --highlight-color: #f59e0b;
+}
+
+html.pokemon header {
+  background: linear-gradient(90deg, rgba(255, 255, 230, 0.9), rgba(255, 250, 230, 0.85)) !important;
+}
+
+/* Sakura: pastel pinks */
+html.sakura,
+html.sakura body {
+  background-color: #fff7fb;
+  color: #3b2b3b;
+}
+
+html.sakura {
+  --highlight-color: #fb7185;
+}
+
+html.sakura header {
+  background: linear-gradient(90deg, rgba(255, 244, 247, 0.9), rgba(255, 238, 243, 0.85)) !important;
+}
+
+/* Matrix: dark green terminal vibe (uses dark variant) */
+html.matrix.dark,
+html.matrix.dark body {
+  background-color: #03110a;
+  color: #9affb3;
+}
+
+html.matrix.dark {
+  --highlight-color: #00ff6a;
+}
+
+html.matrix.dark header {
+  background: rgba(2, 20, 10, 0.6) !important;
+}
+
+/* Neon: cyber dark with purple highlights (uses dark variant) */
+html.neon.dark,
+html.neon.dark body {
+  background-color: #05040a;
+  color: #c7f9e8;
+}
+
+html.neon.dark {
+  --highlight-color: #7c3aed;
+}
+
+html.neon.dark header {
+  background: linear-gradient(90deg, rgba(6, 4, 10, 0.9), rgba(12, 6, 32, 0.9)) !important;
+}
+
+/* --- Additional themes: Windows XP, Naruto Fire Spirit, L (Death Note), Retro Arcade, Solarized --- */
+
+/* Windows XP: soft blue desktop feel */
+html.windows-xp,
+html.windows-xp body {
+  background-color: #cfe8ff;
+  color: #15386b;
+}
+
+html.windows-xp {
+  --highlight-color: #1e90ff;
+}
+
+html.windows-xp header {
+  background: linear-gradient(90deg, #a6d1ff, #cfe8ff) !important;
+}
+
+/* Naruto Fire Spirit: darker with fiery accents */
+html.naruto-fire,
+html.naruto-fire body {
+  background-color: #0f1410;
+  color: #ffb86b;
+}
+
+html.naruto-fire {
+  --highlight-color: #ff6b2b;
+}
+
+html.naruto-fire header {
+  background: linear-gradient(90deg, #1a1a14, #2b1206) !important;
+}
+
+/* L (Death Note): monochrome high-contrast */
+html.l-deathnote,
+html.l-deathnote body {
+  background-color: #0b0b0b;
+  color: #e8e8e8;
+}
+
+html.l-deathnote {
+  --highlight-color: #ffffff;
+}
+
+html.l-deathnote header {
+  background: #0b0b0b !important;
+}
+
+/* Retro Arcade: neon green on dark */
+html.retro-arcade,
+html.retro-arcade body {
+  background-color: #05020a;
+  color: #39ff14;
+}
+
+html.retro-arcade {
+  --highlight-color: #39ff14;
+}
+
+html.retro-arcade header {
+  background: linear-gradient(90deg, #05020a, #0b0014) !important;
+}
+
+/* Solarized (light variant) */
+html.solarized,
+html.solarized body {
+  background-color: #fdf6e3;
+  color: #657b83;
+}
+
+html.solarized {
+  --highlight-color: #b58900;
+}
+
+html.solarized header {
+  background: linear-gradient(90deg, #f7eed6, #fff8e8) !important;
+}
+
+/* Utility overrides for the added themes (escape slash where needed) */
+html.windows-xp .bg-white,
+html.windows-xp .bg-white\/50,
+html.windows-xp .bg-gray-50,
+html.windows-xp .bg-slate-50,
+html.windows-xp .bg-paper {
+  background-color: #dff0ff !important;
+}
+
+html.windows-xp .text-gray-900,
+html.windows-xp .prose,
+html.windows-xp .prose * {
+  color: #15386b !important;
+}
+
+html.naruto-fire .bg-white,
+html.naruto-fire .bg-white\/50,
+html.naruto-fire .bg-gray-50,
+html.naruto-fire .bg-slate-50,
+html.naruto-fire .bg-paper {
+  background-color: #0a0f0b !important;
+}
+
+html.naruto-fire .text-gray-900,
+html.naruto-fire .prose,
+html.naruto-fire .prose * {
+  color: #ffb86b !important;
+}
+
+html.l-deathnote .bg-white,
+html.l-deathnote .bg-white\/50,
+html.l-deathnote .bg-gray-50,
+html.l-deathnote .bg-slate-50,
+html.l-deathnote .bg-paper {
+  background-color: #0b0b0b !important;
+}
+
+html.l-deathnote .text-gray-900,
+html.l-deathnote .prose,
+html.l-deathnote .prose * {
+  color: #e8e8e8 !important;
+}
+
+html.retro-arcade .bg-white,
+html.retro-arcade .bg-white\/50,
+html.retro-arcade .bg-gray-50,
+html.retro-arcade .bg-slate-50,
+html.retro-arcade .bg-paper {
+  background-color: #04020a !important;
+}
+
+html.retro-arcade .text-gray-900,
+html.retro-arcade .prose,
+html.retro-arcade .prose * {
+  color: #39ff14 !important;
+}
+
+html.solarized .bg-white,
+html.solarized .bg-white\/50,
+html.solarized .bg-gray-50,
+html.solarized .bg-slate-50,
+html.solarized .bg-paper {
+  background-color: #fdf6e3 !important;
+}
+
+html.solarized .text-gray-900,
+html.solarized .prose,
+html.solarized .prose * {
+  color: #657b83 !important;
+}
+
+/* --- Utility overrides so theme classes affect inner components (cards, panels, tabs) --- */
+
+/* Light-style themes (Naruto, Pokémon, Sakura) - override white/gray panels */
+html.naruto .bg-white,
+html.naruto .bg-white\/50,
+html.naruto .bg-gray-50,
+html.naruto .bg-slate-50,
+html.naruto .bg-paper {
+  background-color: #fffaf0 !important;
+}
+
+html.naruto .text-gray-900,
+html.naruto .prose,
+html.naruto .prose * {
+  color: #422913 !important;
+}
+
+html.naruto .border-gray-200 {
+  border-color: rgba(66, 41, 19, 0.12) !important;
+}
+
+html.pokemon .bg-white,
+html.pokemon .bg-white\/50,
+html.pokemon .bg-gray-50,
+html.pokemon .bg-slate-50,
+html.pokemon .bg-paper {
+  background-color: #fffef6 !important;
+}
+
+html.pokemon .text-gray-900,
+html.pokemon .prose,
+html.pokemon .prose * {
+  color: #1f2937 !important;
+}
+
+html.pokemon .border-gray-200 {
+  border-color: rgba(31, 41, 55, 0.06) !important;
+}
+
+html.sakura .bg-white,
+html.sakura .bg-white\/50,
+html.sakura .bg-gray-50,
+html.sakura .bg-slate-50,
+html.sakura .bg-paper {
+  background-color: #fff7fb !important;
+}
+
+html.sakura .text-gray-900,
+html.sakura .prose,
+html.sakura .prose * {
+  color: #3b2b3b !important;
+}
+
+html.sakura .border-gray-200 {
+  border-color: rgba(59, 43, 59, 0.06) !important;
+}
+
+/* Dark-style themes (Matrix, Neon) - override light panels to dark */
+html.matrix.dark .bg-white,
+html.matrix.dark .bg-white\/50,
+html.matrix.dark .bg-gray-50,
+html.matrix.dark .bg-slate-50,
+html.matrix.dark .bg-paper {
+  background-color: #07120b !important;
+}
+
+html.matrix.dark .text-gray-900,
+html.matrix.dark .prose,
+html.matrix.dark .prose *,
+html.matrix.dark .text-slate-600 {
+  color: #9affb3 !important;
+}
+
+html.matrix.dark .border-gray-200,
+html.matrix.dark .border-gray-100 {
+  border-color: rgba(154, 255, 179, 0.06) !important;
+}
+
+html.neon.dark .bg-white,
+html.neon.dark .bg-white\/50,
+html.neon.dark .bg-gray-50,
+html.neon.dark .bg-slate-50,
+html.neon.dark .bg-paper {
+  background-color: #06030a !important;
+}
+
+html.neon.dark .text-gray-900,
+html.neon.dark .prose,
+html.neon.dark .prose *,
+html.neon.dark .text-slate-600 {
+  color: #c7f9e8 !important;
+}
+
+html.neon.dark .border-gray-200,
+html.neon.dark .border-gray-100 {
+  border-color: rgba(124, 58, 237, 0.06) !important;
+}
+
+/* Small helper: ensure tabs/active indicators contrast */
+html.matrix.dark .tab-active,
+html.neon.dark .tab-active {
+  background-color: rgba(0, 0, 0, 0.6) !important;
 }
