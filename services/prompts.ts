@@ -95,6 +95,35 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    
    **DO NOT include <script> tags.** The app handles audio logic centrally.
 
+
+6. **External Imagery & GIFs (USE WITH CAUTION)**:
+   Your primary method must be drawing concepts yourself using SVG primitives (rects, circles, paths).
+   
+   **CRITICAL RULE: AVOID RANDOMNESS**
+   - **DO NOT** use image search for abstract or vague concepts (e.g., "efficiency", "logic", "history", "thought"). This results in random, confusing stock photos that ruin the learning experience.
+   - **DO** use images for **CONCRETE, UNAMBIGUOUS NOUNS** (e.g., "microscope", "lion", "pyramid", "circuit board").
+   - If a concept is abstract, **DRAW IT YOURSELF** using schematic SVG shapes or less advised but still valid use Placehold.co text blocks if suitable.
+
+   Use the standard SVG tag: <image href="URL" x="..." y="..." width="..." height="..." preserveAspectRatio="xMidYMid slice" />
+   
+   **ALLOWED DOMAINS:**
+   
+   A. **For Concrete Photos (Common Objects, Animals):**
+      Use LoremFlickr with 'grayscale'.
+      Pattern: https://loremflickr.com/g/400/300/{concrete_keyword}
+      *Safe Example*: "cat", "piano". *Unsafe Example*: "success", "power".
+      Max. 1 per whiteboard
+      
+   B. **For Schematic Blocks (Systems, Flowcharts, emojis etc):**
+      Use Placehold.co to create neat labeled blocks instantly.
+      Pattern: https://placehold.co/300x200/e2e8f0/1e293b?text={Label}
+      Max. is none. use as required.
+      
+   C. **For Specific Animations:**
+      Use Wikimedia Commons URLs only if you know the exact static URL.
+      
+   **Layout:** Place images in the "Visuals" zone. Always wrap images in <g class="audio-trigger"...> for accessibility.
+
 ### OUTPUT STRUCTURE
 For every topic generated:
 1. Brief textual introduction.
