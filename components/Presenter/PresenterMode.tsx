@@ -42,6 +42,7 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     // UI State
     const [activeTool, setActiveTool] = useState<ToolMode>('cursor');
     const [showSettings, setShowSettings] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [playbackOrder, setPlaybackOrder] = useState<'first' | 'last'>('last');
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [controlsVisible, setControlsVisible] = useState(true);
@@ -53,6 +54,10 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     const [isDragging, setIsDragging] = useState(false);
     const dragStart = useRef({ x: 0, y: 0 });
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+    // Touch Pinch Zoom State
+    const [touchStartDist, setTouchStartDist] = useState<number>(0);
+    const [touchStartZoom, setTouchStartZoom] = useState<number>(1);
 
     const [fade, setFade] = useState(false);
 
@@ -155,11 +160,11 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
         setControlsVisible(true);
         if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
         controlsTimeoutRef.current = window.setTimeout(() => {
-            if (playState === 'playing' && !showSettings) {
+            if (playState === 'playing' && !showSettings && !mobileMenuOpen) {
                 setControlsVisible(false);
             }
         }, 3000);
-    }, [playState, showSettings]);
+    }, [playState, showSettings, mobileMenuOpen]);
 
     useEffect(() => {
         if (playState !== 'playing') {
@@ -255,6 +260,85 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
 
     const handleMouseUp = () => setIsDragging(false);
 
+    // --- TOUCH HANDLERS ---
+    const handleTouchStart = (e: React.TouchEvent) => {
+        showControls();
+        
+        // Two Fingers: Pinch to Zoom
+        if (e.touches.length === 2) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            setTouchStartDist(dist);
+            setTouchStartZoom(zoom);
+            setIsDragging(false); // Disable pan if zooming
+            return;
+        }
+
+        // Single Finger: Hand Pan or Pointer Tracking
+        if (e.touches.length === 1) {
+            if (activeTool === 'hand') {
+                setIsDragging(true);
+                dragStart.current = { 
+                    x: e.touches[0].clientX - pan.x, 
+                    y: e.touches[0].clientY - pan.y 
+                };
+            }
+            if (activeTool === 'laser' || activeTool === 'spotlight') {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMousePos({ 
+                    x: e.touches[0].clientX - rect.left, 
+                    y: e.touches[0].clientY - rect.top 
+                });
+            }
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        showControls();
+
+        // Two Fingers: Pinch to Zoom Logic
+        if (e.touches.length === 2) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            if (touchStartDist > 0) {
+                const scale = dist / touchStartDist;
+                // Clamp zoom between 0.1 and 8
+                const newZoom = Math.min(Math.max(0.1, touchStartZoom * scale), 8);
+                setZoom(newZoom);
+            }
+            return;
+        }
+
+        // Single Finger
+        if (e.touches.length === 1) {
+            if (activeTool === 'laser' || activeTool === 'spotlight') {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMousePos({ 
+                    x: e.touches[0].clientX - rect.left, 
+                    y: e.touches[0].clientY - rect.top 
+                });
+            }
+
+            if (activeTool === 'hand' && isDragging) {
+                // Prevent screen scroll if dragging
+                if(e.cancelable) e.preventDefault(); 
+                setPan({ 
+                    x: e.touches[0].clientX - dragStart.current.x, 
+                    y: e.touches[0].clientY - dragStart.current.y 
+                });
+            }
+        }
+    };
+
+    const handleTouchEnd = () => {
+        setIsDragging(false);
+        setTouchStartDist(0);
+    };
+
     // --- RENDER ---
     if (slides.length === 0) {
         return (
@@ -297,7 +381,7 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                 </div>
             ) : (
                 <div
-                    className="relative w-full h-full bg-black flex flex-col overflow-hidden group/player select-none"
+                    className="relative w-full h-full bg-black flex flex-col overflow-hidden group/player select-none touch-none"
                     onMouseMove={showControls}
                     onTouchStart={showControls}
                 >
@@ -328,6 +412,10 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
+                        
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
                     >
                         <div
                             className={`transition-opacity duration-200 ease-out origin-center ${fade ? 'opacity-0' : 'opacity-100'}`}
@@ -370,16 +458,40 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                         </div>
                     )}
 
-                    <div className={`absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2 bg-black/60 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shadow-xl transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                        <ToolButton icon={MousePointer2} active={activeTool === 'cursor'} onClick={() => setActiveTool('cursor')} label="Pointer" />
-                        <ToolButton icon={Hand} active={activeTool === 'hand'} onClick={() => setActiveTool('hand')} label="Pan" />
-                        <ToolButton icon={PenTool} active={activeTool === 'pen'} onClick={() => setActiveTool('pen')} label="Pen" />
-                        <ToolButton icon={Zap} active={activeTool === 'laser'} onClick={() => setActiveTool('laser')} label="Laser" />
-                        <ToolButton icon={Lightbulb} active={activeTool === 'spotlight'} onClick={() => setActiveTool('spotlight')} label="Spotlight" />
-                        <div className="w-full h-px bg-white/10 my-1"></div>
-                        <ToolButton icon={ZoomIn} active={false} onClick={() => adjustZoom(0.25)} label="Zoom In" />
-                        <ToolButton icon={ZoomOut} active={false} onClick={() => adjustZoom(-0.25)} label="Zoom Out" />
-                        <ToolButton icon={RotateCcw} active={false} onClick={resetTransform} label="Reset View" />
+                    <div className={`
+                        absolute z-40 transition-all duration-300 flex flex-col
+                        ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+                        /* Desktop: Right vertical centering */
+                        md:right-4 md:top-1/2 md:-translate-y-1/2 md:flex-col md:translate-x-0 md:bottom-auto md:left-auto md:items-center
+                        /* Mobile: Bottom LEFT Corner (to avoid subtitle overlap) */
+                        bottom-32 left-4 translate-x-0 items-start
+                    `}>
+                        {/* Mobile Toggle Button */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className={`md:hidden mb-2 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg border border-white/10 backdrop-blur-md transition-all ${mobileMenuOpen ? 'bg-white text-black' : 'bg-black/60 text-white'}`}
+                        >
+                            <MousePointer2 size={16} />
+                            <span className="text-xs font-bold">{mobileMenuOpen ? 'Close Tools' : 'Tools'}</span>
+                        </button>
+
+                        <div className={`
+                            flex gap-2 bg-black/80 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shadow-xl
+                            md:flex-col flex-row
+                            ${mobileMenuOpen ? 'flex' : 'hidden md:flex'}
+                        `}>
+                            <ToolButton icon={MousePointer2} active={activeTool === 'cursor'} onClick={() => setActiveTool('cursor')} label="Pointer" />
+                            <ToolButton icon={Hand} active={activeTool === 'hand'} onClick={() => setActiveTool('hand')} label="Pan" />
+                            <ToolButton icon={PenTool} active={activeTool === 'pen'} onClick={() => setActiveTool('pen')} label="Pen" />
+                            <ToolButton icon={Zap} active={activeTool === 'laser'} onClick={() => setActiveTool('laser')} label="Laser" />
+                            <ToolButton icon={Lightbulb} active={activeTool === 'spotlight'} onClick={() => setActiveTool('spotlight')} label="Spotlight" />
+                            
+                            <div className="md:w-full md:h-px w-px h-auto bg-white/10 my-0 md:my-1 mx-1 md:mx-0"></div>
+                            
+                            <ToolButton icon={ZoomIn} active={false} onClick={() => adjustZoom(0.25)} label="Zoom In" />
+                            <ToolButton icon={ZoomOut} active={false} onClick={() => adjustZoom(-0.25)} label="Zoom Out" />
+                            <ToolButton icon={RotateCcw} active={false} onClick={resetTransform} label="Reset View" />
+                        </div>
                     </div>
 
                     <div className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-12 pb-6 px-4 md:px-8 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -523,11 +635,11 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
 const ToolButton: React.FC<{ icon: React.ElementType, active: boolean, onClick: () => void, label: string }> = ({ icon: Icon, active, onClick, label }) => (
     <button
         onClick={onClick}
-        className={`p-2.5 rounded-xl transition-all group relative ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+        className={`p-2 md:p-2.5 rounded-xl transition-all group relative ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
         aria-label={label}
     >
         <Icon size={20} />
-        <span className="absolute right-full mr-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-black/80 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none font-medium">
+        <span className="hidden md:block absolute right-full mr-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-black/80 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none font-medium">
             {label}
         </span>
     </button>
