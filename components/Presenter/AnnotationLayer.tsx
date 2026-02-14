@@ -40,33 +40,74 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ active, color 
     }, [color]); // Re-run if the drawing color changes (e.g., from settings)
 
     /**
-     * Handles the mouse down event to initiate drawing.
-     * Starts a new path on the canvas context.
-     * @param {React.MouseEvent} e The mouse event object.
+     * Helper to extract (x,y) coordinates from both Mouse and Touch events relative to the canvas.
+     * Accounts for CSS transforms (zoom) by calculating the scale ratio between
+     * the internal canvas size and the visual bounding rectangle.
      */
-    const startDraw = (e: React.MouseEvent) => {
+    const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return { x: 0, y: 0 };
+
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+
+        if ('touches' in e) {
+            // Use the first finger for drawing
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = (e as React.MouseEvent).clientX;
+            clientY = (e as React.MouseEvent).clientY;
+        }
+
+        // Calculate scale factors to map screen pixels to canvas bitmap pixels
+        // This fixes offset issues when the parent container is zoomed/scaled via CSS
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    };
+
+    /**
+     * Handles the mouse/touch down event to initiate drawing.
+     * Starts a new path on the canvas context.
+     * @param {React.MouseEvent | React.TouchEvent} e The event object.
+     */
+    const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
         if (!active) return; // Only allow drawing if the annotation layer is active
         const ctx = canvasRef.current?.getContext('2d');
         if (!ctx) return;
         
+        const { x, y } = getCoordinates(e);
+
         ctx.beginPath(); // Begin a new drawing path
-        // Move the drawing pointer to the current mouse offset relative to the canvas
-        ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY); 
+        ctx.moveTo(x, y); // Move to start
         setIsDrawing(true); // Set drawing state to true
     };
 
     /**
-     * Handles the mouse move event to continue drawing.
-     * Draws a line from the previous point to the current mouse position.
-     * @param {React.MouseEvent} e The mouse event object.
+     * Handles the mouse/touch move event to continue drawing.
+     * Draws a line from the previous point to the current position.
+     * @param {React.MouseEvent | React.TouchEvent} e The event object.
      */
-    const draw = (e: React.MouseEvent) => {
-        // Only draw if `isDrawing` is true (mouse is down) and the layer is `active`
+    const draw = (e: React.MouseEvent | React.TouchEvent) => {
+        // Only draw if `isDrawing` is true and the layer is `active`
         if (!isDrawing || !active) return; 
+        
+        // Prevent scrolling on touch devices while drawing
+        if ('touches' in e && e.cancelable) {
+            e.preventDefault();
+        }
+
         const ctx = canvasRef.current?.getContext('2d');
         if (!ctx) return;
         
-        ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY); // Draw a line segment
+        const { x, y } = getCoordinates(e);
+        
+        ctx.lineTo(x, y); // Draw a line segment
         ctx.stroke(); // Render the current path
     };
 
@@ -87,10 +128,16 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ active, color 
                 ref={canvasRef}
                 onMouseDown={startDraw}
                 onMouseMove={draw}
-                onMouseUp={() => setIsDrawing(false)} // Stop drawing when mouse button is released
-                onMouseLeave={() => setIsDrawing(false)} // Stop drawing if the mouse leaves the canvas area
-                // Dynamically apply cursor and pointer-events based on `active` state
-                className={`absolute inset-0 z-10 ${active ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'}`}
+                onMouseUp={() => setIsDrawing(false)}
+                onMouseLeave={() => setIsDrawing(false)}
+                
+                onTouchStart={startDraw}
+                onTouchMove={draw}
+                onTouchEnd={() => setIsDrawing(false)}
+                
+                // Dynamically apply cursor and pointer-events based on `active` state.
+                // touch-none ensures browser scrolling doesn't interfere with drawing.
+                className={`absolute inset-0 z-10 touch-none ${active ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'}`}
             />
             {active && ( // Render drawing controls only if the annotation layer is active
                 <div className="absolute top-4 right-4 z-20 bg-white shadow-md p-1 rounded-lg flex gap-1 pointer-events-auto">
