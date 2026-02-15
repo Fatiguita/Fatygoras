@@ -4,13 +4,13 @@ import {
     LayoutGrid, MousePointer2, PenTool, Hand,
     ZoomIn, ZoomOut, RotateCcw, X,
     Maximize, Minimize, Zap, Lightbulb, Settings,
-    Volume2
+    Volume2, FileVideo, FileText, Type
 } from 'lucide-react';
 import { SlideData, PlayerSettings, PlayState, WhiteboardData } from '../../types';
 import { usePresentationTTS } from '../../hooks/usePresentationTTS';
 import { SlideGrid } from './SlideGrid';
-import { AnnotationLayer } from './AnnotationLayer';
-import { convertWhiteboardsToSlides } from '../../utils/presentationUtils';
+import { AnnotationLayer, AnnotationLayerRef } from './AnnotationLayer';
+import { convertWhiteboardsToSlides, generateId } from '../../utils/presentationUtils';
 import { cancelAudio } from '../../services/audioService';
 
 const DEFAULT_SETTINGS: PlayerSettings = {
@@ -22,10 +22,11 @@ const DEFAULT_SETTINGS: PlayerSettings = {
     autoPlay: true,
     pacing: 500,
     staticSlideDuration: 10000,
-    minSlideDuration: 50000
+    minSlideDuration: 50000,
+    autoPan: true
 };
 
-type ToolMode = 'cursor' | 'hand' | 'pen' | 'laser' | 'spotlight';
+type ToolMode = 'cursor' | 'hand' | 'pen' | 'text' | 'laser' | 'spotlight';
 
 interface PresenterModeProps {
     initialWhiteboards: WhiteboardData[];
@@ -47,6 +48,7 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [controlsVisible, setControlsVisible] = useState(true);
     const controlsTimeoutRef = useRef<number | null>(null);
+    const annotationRef = useRef<AnnotationLayerRef>(null);
 
     // Transform State
     const [zoom, setZoom] = useState(1);
@@ -59,26 +61,41 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     const [touchStartDist, setTouchStartDist] = useState<number>(0);
     const [touchStartZoom, setTouchStartZoom] = useState<number>(1);
 
-    const [fade, setFade] = useState(false);
+    // Transition State
+    const [isTransitioning, setIsTransitioning] = useState(false);
+
+    // Constants
+    const MIN_ZOOM = 0.6; // Increased to prevent black screen feeling
+    const MAX_ZOOM = 5;
 
     // --- LOGIC ---
     const resetTransform = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
 
-    // CRITICAL FIX: Wrap changeSlide in useCallback to stabilize its identity.
-    // This prevents the usePresentationTTS hook from resetting on every render.
+    const saveAnnotation = useCallback(() => {
+        if (annotationRef.current && currentIndex >= 0 && currentIndex < slides.length) {
+            const data = annotationRef.current.getCanvasData();
+            if (data) {
+                setSlides(prev => prev.map((s, i) => i === currentIndex ? { ...s, annotationData: data } : s));
+            }
+        }
+    }, [currentIndex, slides.length]);
+
     const changeSlide = useCallback((newIndex: number) => {
         if (newIndex < 0 || newIndex >= slides.length) return;
-        setFade(true);
+        
+        saveAnnotation();
+
+        // Start Transition
+        setIsTransitioning(true);
+
         setTimeout(() => {
             setCurrentIndex(newIndex);
             resetTransform();
-            setFade(false);
+            setIsTransitioning(false);
             setPlayState(settings.autoPlay ? 'playing' : 'paused');
-        }, 200);
-    }, [slides.length, settings.autoPlay]);
+        }, 300);
+    }, [currentIndex, slides.length, settings.autoPlay, saveAnnotation]);
 
-    // CRITICAL FIX: Wrap handleNext in useCallback. Since it depends on changeSlide,
-    // it also needs to be memoized to remain stable for the TTS hook.
     const handleNext = useCallback(() => {
         if (playbackOrder === 'first') {
             if (currentIndex < slides.length - 1) {
@@ -104,16 +121,55 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
         settings
     );
 
+    // --- AUTO PAN LOGIC ---
+    useEffect(() => {
+        if (!settings.autoPan || !activeId || viewMode !== 'present' || isTransitioning || isDragging) return;
+
+        const el = document.getElementById(activeId);
+        const container = document.getElementById('slide-container');
+
+        if (el && container) {
+            const elRect = el.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+
+            // Only auto-pan if element is off-center or we need to focus
+            const elCenterX = elRect.left + elRect.width / 2;
+            const elCenterY = elRect.top + elRect.height / 2;
+            const containerCenterX = containerRect.left + containerRect.width / 2;
+            const containerCenterY = containerRect.top + containerRect.height / 2;
+
+            const diffX = containerCenterX - elCenterX;
+            const diffY = containerCenterY - elCenterY;
+            
+            // Apply smoothing by adding to current pan
+            setPan(prev => ({ x: prev.x + diffX, y: prev.y + diffY }));
+
+            // Intelligent Zoom - ADJUSTED for less aggressive zoom
+            // Aim for element to take up 35% width instead of 55%
+            const targetWidth = containerRect.width * 0.35; 
+            if (elRect.width > 0) {
+                 const currentElementScale = elRect.width / zoom; // unscaled width
+                 const desiredZoom = targetWidth / currentElementScale;
+                 // Cap max auto-zoom to 1.8x to prevent excessive close-ups
+                 const clampedZoom = Math.max(1, Math.min(1.8, desiredZoom)); 
+                 
+                 // Only zoom if significant difference to avoid jitter
+                 if (Math.abs(clampedZoom - zoom) > 0.1) {
+                     setZoom(clampedZoom);
+                 }
+            }
+        }
+    }, [activeId, settings.autoPan, viewMode, isTransitioning, zoom, isDragging]);
+
     // --- INITIALIZATION & EFFECTS ---
     useEffect(() => {
-        if (initialWhiteboards.length > 0) {
+        if (slides.length === 0 && initialWhiteboards.length > 0) {
             const converted = convertWhiteboardsToSlides(initialWhiteboards);
-            setSlides(converted); // Always update slides
-            // If we are in grid, just let it update. If presenting, check bounds.
+            setSlides(converted);
             if (viewMode === 'present' && currentIndex >= converted.length) {
-                setCurrentIndex(0); // Reset to first slide if current is out of bounds
+                setCurrentIndex(0);
             }
-        } else {
+        } else if (initialWhiteboards.length === 0) {
             setSlides([]);
             setCurrentIndex(0);
             setViewMode('grid');
@@ -177,8 +233,6 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     // --- HANDLERS ---
     const enterPresentation = (index: number) => {
         if (slides.length === 0) return;
-        // Respect playback order: if 'last', map the requested index so that
-        // grid index 0 corresponds to last slide when presenting.
         const clamped = Math.max(0, Math.min(index, slides.length - 1));
         const startIndex = playbackOrder === 'first' ? clamped : (slides.length - 1 - clamped);
         setCurrentIndex(startIndex);
@@ -189,6 +243,7 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
 
     const exitPresentation = () => {
         setPlayState('idle');
+        saveAnnotation();
         setViewMode('grid');
         cancelAudio();
         if (document.fullscreenElement) {
@@ -223,8 +278,6 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     }, [currentIndex, slides.length, changeSlide, playbackOrder]);
 
     const handleDelete = (index: number) => {
-        // If the grid is showing reversed slides, map the clicked index back to the
-        // original slides array index before deleting.
         const originalIndex = playbackOrder === 'first' ? index : (slides.length - 1 - index);
         const newSlides = slides.filter((_, i) => i !== originalIndex);
         setSlides(newSlides);
@@ -238,13 +291,96 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
         }
     };
 
-    const adjustZoom = (delta: number) => { setZoom(z => Math.max(0.1, Math.min(8, z + delta))); };
+    const adjustZoom = (delta: number) => { 
+        setZoom(z => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta))); 
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+        if (Math.abs(e.deltaY) < 5) return; // noise filter
+        const sensitivity = 0.001;
+        const delta = -e.deltaY * sensitivity * (zoom * 1.5); // Scaled by current zoom for natural feel
+        setZoom(z => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta)));
+    };
+
+    const handleAddTitleCard = () => {
+        const title = prompt("Enter Title for new card:");
+        if (!title) return;
+        
+        const newSlide: SlideData = {
+            id: generateId(),
+            type: 'title',
+            name: title,
+            svgContent: `
+                <svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" style="background:#1e1b4b; width:100%; height:100%;">
+                    <rect width="100%" height="100%" fill="#1e1b4b"/>
+                    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="120" fill="white">
+                        ${title}
+                    </text>
+                </svg>
+            `,
+            narrativeSegments: [{ id: 'title-seg', text: title }],
+            fullNarrative: title
+        };
+        
+        setSlides(prev => [...prev, newSlide]);
+    };
+
+    const handleExportVideo = async () => {
+        alert("To export video: \n1. Select 'Fatygoras Tab' (This Tab).\n2. Make sure 'Share System Audio' is checked.\n3. The presentation will play automatically.");
+        try {
+            const constraints: any = {
+                video: { displaySurface: 'browser' },
+                audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+                selfBrowserSurface: 'include',
+                preferCurrentTab: true,
+                systemAudio: 'include'
+            };
+
+            const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
+            const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+            const chunks: Blob[] = [];
+            
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `presentation_${Date.now()}.webm`;
+                a.click();
+            };
+            
+            recorder.start();
+            enterPresentation(0);
+        } catch (e) {
+            console.error("Screen capture failed", e);
+            alert("Could not start recording. Ensure your browser supports screen sharing.");
+        }
+    };
+
+    const handleExportPDF = () => {
+        const printWindow = window.open('', '_blank');
+        if(!printWindow) return;
+        
+        const content = slides.map(s => `
+            <div style="page-break-after: always; text-align: center; height: 100vh; display: flex; flex-direction: column; justify-content: center;">
+                <div style="max-height: 80vh;">${s.svgContent}</div>
+                <p style="font-family: sans-serif; padding: 20px; font-size: 18px;">${s.fullNarrative}</p>
+            </div>
+        `).join('');
+        
+        printWindow.document.write(`<html><head><title>Presentation Export</title></head><body style="margin: 0; padding: 0;">${content}</body></html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 1000);
+    };
 
     const handleMouseDown = (e: React.MouseEvent) => {
         showControls();
-        if (activeTool !== 'hand') return;
-        setIsDragging(true);
-        dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+        if (activeTool === 'hand') {
+            setIsDragging(true);
+            dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+        }
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -263,8 +399,6 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     // --- TOUCH HANDLERS ---
     const handleTouchStart = (e: React.TouchEvent) => {
         showControls();
-        
-        // Two Fingers: Pinch to Zoom
         if (e.touches.length === 2) {
             const dist = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
@@ -272,11 +406,9 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
             );
             setTouchStartDist(dist);
             setTouchStartZoom(zoom);
-            setIsDragging(false); // Disable pan if zooming
+            setIsDragging(false); 
             return;
         }
-
-        // Single Finger: Hand Pan or Pointer Tracking
         if (e.touches.length === 1) {
             if (activeTool === 'hand') {
                 setIsDragging(true);
@@ -297,8 +429,6 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
 
     const handleTouchMove = (e: React.TouchEvent) => {
         showControls();
-
-        // Two Fingers: Pinch to Zoom Logic
         if (e.touches.length === 2) {
             const dist = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
@@ -306,14 +436,11 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
             );
             if (touchStartDist > 0) {
                 const scale = dist / touchStartDist;
-                // Clamp zoom between 0.1 and 8
-                const newZoom = Math.min(Math.max(0.1, touchStartZoom * scale), 8);
+                const newZoom = Math.min(Math.max(MIN_ZOOM, touchStartZoom * scale), MAX_ZOOM);
                 setZoom(newZoom);
             }
             return;
         }
-
-        // Single Finger
         if (e.touches.length === 1) {
             if (activeTool === 'laser' || activeTool === 'spotlight') {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -322,9 +449,7 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                     y: e.touches[0].clientY - rect.top 
                 });
             }
-
             if (activeTool === 'hand' && isDragging) {
-                // Prevent screen scroll if dragging
                 if(e.cancelable) e.preventDefault(); 
                 setPan({ 
                     x: e.touches[0].clientX - dragStart.current.x, 
@@ -340,12 +465,13 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     };
 
     // --- RENDER ---
-    if (slides.length === 0) {
+    if (slides.length === 0 && viewMode === 'grid') {
         return (
             <div className="h-full w-full flex flex-col items-center justify-center bg-slate-900 text-slate-400">
                 <RotateCcw size={48} className="mb-4 opacity-50" />
-                <p className="text-lg">No slides generated.</p>
-                <p className="text-sm mt-2">Go to Classroom to create content.</p>
+                <p className="text-lg">No content ready.</p>
+                <p className="text-sm mt-2">Generate a lesson in Classroom or add a Title Card.</p>
+                <button onClick={handleAddTitleCard} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 transition">Add Title Card</button>
             </div>
         );
     }
@@ -360,6 +486,8 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                             <LayoutGrid size={20} className="text-indigo-500" /> Presentation Index
                         </h2>
                         <div className="flex items-center gap-3">
+                            <button onClick={handleExportVideo} className="p-2 text-slate-500 hover:text-indigo-500" title="Record Video"><FileVideo size={20}/></button>
+                            <button onClick={handleExportPDF} className="p-2 text-slate-500 hover:text-indigo-500" title="Print to PDF"><FileText size={20}/></button>
                             <select value={playbackOrder} onChange={(e) => setPlaybackOrder(e.target.value as 'first' | 'last')}
                                 className="bg-white/5 text-sm text-white p-1 rounded border border-white/10">
                                 <option value="last">Last → First</option>
@@ -375,8 +503,13 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                         </div>
                     </div>
                     <div className="flex-1 overflow-hidden">
-                        {/** Pass displayedSlides to `SlideGrid` so numbering/order matches playbackOrder */}
-                        <SlideGrid slides={playbackOrder === 'first' ? slides : [...slides].reverse()} onSelect={enterPresentation} onDelete={handleDelete} />
+                        <SlideGrid 
+                            slides={playbackOrder === 'first' ? slides : [...slides].reverse()} 
+                            onSelect={enterPresentation} 
+                            onDelete={handleDelete}
+                            onReorder={setSlides}
+                            onAddTitleCard={handleAddTitleCard}
+                        />
                     </div>
                 </div>
             ) : (
@@ -407,32 +540,45 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                     </div>
 
                     <div
+                        id="slide-container"
                         className={`w-full h-full flex items-center justify-center overflow-hidden relative p-4 ${activeTool === 'hand' ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
                         onMouseDown={handleMouseDown}
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
-                        
                         onTouchStart={handleTouchStart}
                         onTouchMove={handleTouchMove}
                         onTouchEnd={handleTouchEnd}
+                        onWheel={handleWheel} // Added Scroll-to-Zoom
                     >
-                        <div
-                            className={`transition-opacity duration-200 ease-out origin-center ${fade ? 'opacity-0' : 'opacity-100'}`}
-                            style={{
-                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                                width: '100%', height: '100%',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                willChange: 'transform'
-                            }}
-                        >
-                            {/* FIX: Added bg-white to ensure SVGs with transparent backgrounds are visible */}
-                            <div className="relative shadow-2xl w-full h-full max-w-[1920px] max-h-[1080px] flex items-center justify-center bg-white">
-                                <div className="w-full h-full pointer-events-none" dangerouslySetInnerHTML={{ __html: currentSlide?.svgContent || '' }} />
+                        {/* 
+                           Separated Containers for Stability:
+                           1. Outer: Handles Slide Transition (Opacity Fade) - Cleanest way to transition
+                           2. Inner: Handles Pan/Zoom Transform - Separated to avoid 'transition-all' conflict
+                        */}
+                        <div className={`w-full h-full flex items-center justify-center transition-opacity duration-500 ease-in-out ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+                            <div
+                                className="w-full h-full flex items-center justify-center"
+                                style={{
+                                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                                    // CRITICAL FIX: Only apply transition if NOT dragging. This prevents the "floaty/crazy" lag.
+                                    transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
+                                    willChange: 'transform'
+                                }}
+                            >
+                                <div className="relative shadow-2xl w-full h-full max-w-[1920px] max-h-[1080px] flex items-center justify-center bg-white aspect-video origin-center">
+                                    <div className="w-full h-full pointer-events-none" dangerouslySetInnerHTML={{ __html: currentSlide?.svgContent || '' }} />
 
-                                <div className="absolute inset-0 z-10 pointer-events-none">
-                                    <div className={activeTool === 'pen' ? 'pointer-events-auto w-full h-full' : 'hidden'}>
-                                        <AnnotationLayer active={activeTool === 'pen'} color={settings.highlightColor} />
+                                    <div className="absolute inset-0 z-10 pointer-events-none">
+                                        <div className={activeTool === 'pen' || activeTool === 'text' ? 'pointer-events-auto w-full h-full' : 'hidden'}>
+                                            <AnnotationLayer 
+                                                ref={annotationRef}
+                                                active={activeTool === 'pen' || activeTool === 'text'} 
+                                                color={settings.highlightColor}
+                                                initialImage={currentSlide?.annotationData}
+                                                tool={activeTool === 'text' ? 'text' : 'pen'}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -461,12 +607,9 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                     <div className={`
                         absolute z-40 transition-all duration-300 flex flex-col
                         ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}
-                        /* Desktop: Right vertical centering */
                         md:right-4 md:top-1/2 md:-translate-y-1/2 md:flex-col md:translate-x-0 md:bottom-auto md:left-auto md:items-center
-                        /* Mobile: Bottom LEFT Corner (to avoid subtitle overlap) */
                         bottom-32 left-4 translate-x-0 items-start
                     `}>
-                        {/* Mobile Toggle Button */}
                         <button
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                             className={`md:hidden mb-2 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg border border-white/10 backdrop-blur-md transition-all ${mobileMenuOpen ? 'bg-white text-black' : 'bg-black/60 text-white'}`}
@@ -483,6 +626,7 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                             <ToolButton icon={MousePointer2} active={activeTool === 'cursor'} onClick={() => setActiveTool('cursor')} label="Pointer" />
                             <ToolButton icon={Hand} active={activeTool === 'hand'} onClick={() => setActiveTool('hand')} label="Pan" />
                             <ToolButton icon={PenTool} active={activeTool === 'pen'} onClick={() => setActiveTool('pen')} label="Pen" />
+                            <ToolButton icon={Type} active={activeTool === 'text'} onClick={() => setActiveTool('text')} label="Text" />
                             <ToolButton icon={Zap} active={activeTool === 'laser'} onClick={() => setActiveTool('laser')} label="Laser" />
                             <ToolButton icon={Lightbulb} active={activeTool === 'spotlight'} onClick={() => setActiveTool('spotlight')} label="Spotlight" />
                             
@@ -567,6 +711,17 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                             </div>
 
                             <div className="space-y-4">
+                                {/* NEW: Auto Pan Toggle */}
+                                <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                                    <label className="text-sm text-white/80">Auto-Pan Camera</label>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={settings.autoPan} 
+                                        onChange={e => setSettings({...settings, autoPan: e.target.checked})} 
+                                        className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
+                                    />
+                                </div>
+
                                 <div>
                                     <label htmlFor="narrator-voice" className="text-xs text-white/50 block mb-1">Narrator Voice</label>
                                     <select
