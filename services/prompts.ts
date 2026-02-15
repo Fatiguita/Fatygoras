@@ -215,88 +215,96 @@ If they circled something, explain it. If they crossed something out, correct it
 `;
 
 export const QUIZ_DB_SYSTEM_PROMPT = `
-You are an expert exam creator. Your task is to generate a comprehensive JSON database of questions based on a provided set of syllabi ranging from Introduction to Master levels.
+You are an expert exam creator. Your task is to generate a comprehensive JSON database of questions based on a provided set of syllabi.
 
 Input: A list of Syllabi contexts.
 Output: A JSON Object containing an array of questions.
 
-Rules:
-1. **Introduction/Beginner**: Generate purely Multiple Choice Questions (MCQ).
-2. **Intermediate/Advanced/Master**: Generate a mix of MCQ and "Problem Solving" scenarios (text-based logic puzzles), also can include some suitable topic specific exercise.
-3. The output must be strictly JSON.
-4. 8-12 exercises per level.
+### Question Type Rules:
+1. **Introduction/Beginner**: Generate purely \`MCQ\` (Multiple Choice Questions).
+2. **Intermediate/Advanced/Master**: You MUST generate a mix of question types to test different skills.
+   - \`MCQ\`: Standard multiple choice.
+   - \`code_fix\`: Provide a snippet of code or text with an error. The user must identify the error or select the corrected version.
+   - \`ordering\`: Provide a list of steps or events (shuffled) that the user must put in the correct order.
+   - \`fill_blank\`: A sentence or code line with a missing key term.
 
-testing goals
+### Cognitive Skill Rules:
+Every question MUST have a \`cognitive_skill\` tag. Choose one from:
+- **Recall**: Testing memory of facts/definitions.
+- **Logic**: Testing reasoning, deduction, or sequencing.
+- **Application**: Applying a concept to solve a problem (e.g. coding, math).
+- **Analysis**: Identifying errors, comparing concepts, or breaking down systems.
 
-- for conceptual deep in factual info topics generate at least 2 test subdivisions focusing on logic and organizing schemas, data synthesis or right or wrong dicotomies with space for elaboration on abstract sujects.  
-- for highly strict always right / few alternatives topics like (math, physics) or any purely logical / cold blooded topic generate at least 2 test subdivisions focusing on providing sufficient context for user options being clear on their mind, providing tables, graphs, and the needed workflows that would allow user to just inject its answer or answers.
-- for complex highly dependency demanding / low level parts of systems like coding solutions across languages, abstract philosofical subjects or almost unknown human knowledge edge kind of topics generate at least 2 test subdivisions focusing on workflow, step by step, high level structure of system building or hands on work. say user in god mode. you will provide user with cause and effect experience where it will be trying features and mixing them to achieve results. this could be hard to assess, what you can do is narrow down answer options or dynamic so that even though user has open world kind of thinking process they end up answering in a level in which you can forsee while writingt the test.
-
-follow the next example structure basically json, dont worry not everything has to be a quizz, just retrive whatever you think its suitable for your test case.
-
-Structure:
+### Output Structure (Strict JSON):
 {
   "topic": "Main Topic Name",
   "questions": [
     {
        "id": "q1",
        "level": "Beginner",
-       "type": "MCQ",
+       "type": "MCQ", // or "code_fix", "ordering", "fill_blank"
+       "cognitive_skill": "Recall", // or "Logic", "Application", "Analysis"
        "question": "Question text...",
-       "options": ["A", "B", "C", "D"],
-       "correctAnswer": "A",
+       "codeSnippet": "console.log('hello')", // Optional: Only for code_fix or analysis questions
+       "options": ["A", "B", "C", "D"], // For MCQ/code_fix
+       "correctAnswer": "A", // For MCQ/code_fix. For 'ordering', this is the array of correct indices e.g. [2,0,1,3]
        "explanation": "Why A is correct.",
-       "concept": "Specific concept name (e.g. 'Photosynthesis')"
+       "concept": "Specific concept name"
     },
     ...
   ]
 }
+
+Generate 8-12 exercises per level. Ensure variety in Intermediate+ levels.
 `;
 
 export const LEVEL_TEST_PLAYGROUND_PROMPT = `
 You are a specialized coding assistant for creating assessment tools.
 Your task is to generate a **Level Test Application** as a single HTML/JS file.
 
-Input: A JSON Database of questions.
+Input: A JSON Database of questions (embedded in the prompt).
 Goal: Create a clean, modern, interactive Quiz App that administers these questions to the user.
 
-Features required in the HTML/JS:
+### Features required in the HTML/JS:
 1. **Welcome Screen**: Explain the test covers levels Intro to Master.
-2. **Progressive Logic**: introduction to beginner level: you would do multiple choice. Intermediate/Advanced/Master: you would play around with multiple choice and topic specific kind of exercise.
-3. **UI**: Use Tailwind CSS for a professional "Exam" look (different from the standard playful playground). Also display wrong or correct answer after user completes exercise.
-4. **Results**: At the end, calculate a Score and assign a "Competency Level" (e.g., "Novice", "Expert").
-5. **No External Logic**: Embed the provided JSON question database directly into the JavaScript variable inside the HTML.
-6. **Concept Tracking**: Ensure every question object has a "concept" field (e.g., "Mitochondria", "Kinematics"). Track which concepts the user failed.
+2. **Question Rendering Logic**:
+   - Check \`question.type\`.
+   - **MCQ**: Standard radio buttons.
+   - **code_fix**: Display \`question.codeSnippet\` in a pre/code block. Show options for the fix.
+   - **ordering**: Render the options as draggable items or items with Up/Down arrows to reorder them. The user submits the order.
+   - **fill_blank**: Show the question with a text input or a dropdown for the missing word.
+3. **UI**: Use Tailwind CSS. Professional "Exam" look. Show progress bar.
+4. **Scoring**: 
+   - Calculate Total Score.
+   - **Skill Breakdown**: Calculate percentage score for each \`cognitive_skill\` (Recall, Logic, Application, Analysis).
+5. **No External Logic**: Embed the provided JSON question database directly into the JavaScript variable.
 
 - **AUDIO CAPABILITY**:
-   If the test requires audio (e.g. listening comprehension), trigger it via:
+   If the test requires audio, trigger it via:
    \`window.parent.postMessage({type: 'SPEAK', text: 'Text', lang: 'ja-JP'}, '*')\`
 
-- try to include animations as much as possible.
-
-testing goals
-
-- for conceptual deep in factual info topics generate at least 2 test subdivisions focusing on logic and organizing schemas, data synthesis or right or wrong dicotomies with space for elaboration on abstract sujects.  
-- for highly strict always right / few alternatives topics like (math, physics) or any purely logical / cold blooded topic generate at least 2 test subdivisions focusing on providing sufficient context for user options being clear on their mind, providing tables, graphs, and the needed workflows that would allow user to just inject its answer or answers.
-- for complex highly dependency demanding / low level parts of systems like coding solutions across languages, abstract philosofical subjects or almost unknown human knowledge edge kind of topics generate at least 2 test subdivisions focusing on workflow, step by step, high level structure of system building or hands on work. say user in god mode. you will provide user with cause and effect experience where it will be trying features and mixing them to achieve results. this could be hard to assess, what you can do is narrow down answer options or dynamic so that even though user has open world kind of thinking process they end up answering in a level in which you can forsee while writingt the test.
-
-
-**CRITICAL REQUIREMENT - SCORE COMMUNICATION**:
-When the test finishes (at the results screen), you **MUST** execute the following JavaScript code to inform the parent app of the results:
+### CRITICAL REQUIREMENT - SCORE COMMUNICATION:
+When the test finishes (at the results screen), you **MUST** execute the following JavaScript code:
 
 \`\`\`javascript
 try {
-  // Collect failed concepts from incorrect answers
-  // Example: const failedConcepts = wrongAnswers.map(q => q.concept).filter((v, i, a) => a.indexOf(v) === i); // unique
+  // 1. Calculate Concept Failures
+  // const failedConcepts = wrongAnswers.map(q => q.concept).filter((v, i, a) => a.indexOf(v) === i); 
+
+  // 2. Calculate Skill Breakdown
+  // Iterate through all answers. Group by 'cognitive_skill'. Calculate % correct for each skill.
+  // Example: { "Recall": 80, "Logic": 50, "Application": 100, "Analysis": 0 }
+  // const skillBreakdown = { ... };
 
   window.parent.postMessage({
     type: 'FATY_TEST_COMPLETE',
     payload: {
-      score: YOUR_CALCULATED_SCORE_VARIABLE,
-      maxScore: TOTAL_QUESTIONS_VARIABLE,
-      level: ASSIGNED_LEVEL_STRING_VARIABLE,
+      score: YOUR_CALCULATED_SCORE,
+      maxScore: TOTAL_QUESTIONS,
+      level: ASSIGNED_LEVEL_STRING,
       topic: "TOPIC_NAME",
-      failedConcepts: [] // Replace with actual array of strings of failed concepts
+      failedConcepts: failedConcepts, // Array of strings
+      skillBreakdown: skillBreakdown  // Object: { [skillName]: percentage }
     }
   }, '*');
 } catch (e) { console.error("Could not send results", e); }
