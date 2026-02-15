@@ -258,7 +258,8 @@ export const generateQuizDatabase = async (
     topic: string,
     syllabiContext: string,
     modelId: string,
-    logger?: Logger
+    logger?: Logger,
+    specificLevel?: string
 ): Promise<string> => {
     const ai = getClient(apiKey);
 
@@ -266,13 +267,19 @@ export const generateQuizDatabase = async (
         type: 'request', 
         source: 'generateQuizDatabase', 
         summary: `Generating comprehensive quiz DB for ${topic}`,
-        details: { syllabiContextLength: syllabiContext.length }
+        details: { syllabiContextLength: syllabiContext.length, specificLevel }
     });
+
+    let prompt = `Generate a quiz database for topic: ${topic}. \n\nSYLLABI CONTEXT:\n${syllabiContext}`;
+    
+    if (specificLevel) {
+        prompt += `\n\nIMPORTANT: This is a specific exam for '${specificLevel}' level only. Generate 10-15 questions strictly for this level. Do not include other levels.`;
+    }
 
     try {
         const response = await ai.models.generateContent({
             model: modelId,
-            contents: `Generate a quiz database for topic: ${topic}. \n\nSYLLABI CONTEXT:\n${syllabiContext}`,
+            contents: prompt,
             config: {
                 systemInstruction: QUIZ_DB_SYSTEM_PROMPT,
                 responseMimeType: "application/json"
@@ -294,18 +301,25 @@ export const generateLevelTestPlayground = async (
     quizJson: string,
     modelId: string,
     logger?: Logger,
-    mainTopic?: string
+    mainTopic?: string,
+    specificLevel?: string
 ): Promise<Omit<PlaygroundCode, 'status'>> => {
     const ai = getClient(apiKey);
     
     const contextStr = mainTopic ? `COURSE CONTEXT: ${mainTopic}\n` : "";
-    const contentToSend = `${contextStr}Create a Level Test App for ${topic}. \n\nHere is the question database to embed:\n${quizJson}`;
+    let contentToSend = `${contextStr}Create a Level Test App for ${topic}. \n\nHere is the question database to embed:\n${quizJson}`;
+
+    if (specificLevel) {
+        contentToSend += `\n\nIMPORTANT: This is a specific exam for '${specificLevel}' level. 
+        1. Welcome screen should say "Welcome to the ${specificLevel} Exam".
+        2. Scoring should calculate a percentage (0-100%) and assign a grade (A-F) or Pass/Fail status instead of assigning a competency level (Introduction-Master).`;
+    }
 
     if (logger) logger({ 
         type: 'request', 
         source: 'generateLevelTestPlayground', 
         summary: `Generating Level Test App`,
-        details: { quizJsonLength: quizJson.length, mainTopic }
+        details: { quizJsonLength: quizJson.length, mainTopic, specificLevel }
     });
 
     try {
@@ -326,7 +340,7 @@ export const generateLevelTestPlayground = async (
         return {
             id: Date.now().toString(),
             html,
-            description: `Level Test: ${topic}`,
+            description: `Level Test: ${topic}${specificLevel ? ` (${specificLevel})` : ''}`,
             timestamp: Date.now(),
             type: 'test'
         };
