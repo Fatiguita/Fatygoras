@@ -9,6 +9,7 @@ import SessionManager from './components/SessionManager';
 import Syllabus from './components/Syllabus';
 import LevelTest from './components/LevelTest';
 import LoadingTip from './components/LoadingTip';
+import RemediationToast from './components/RemediationToast';
 import { PresenterMode } from './components/Presenter/PresenterMode';
 import {
     AppTheme,
@@ -96,6 +97,10 @@ const App: React.FC = () => {
         } catch (e) { return []; }
     });
     const [isGeneratingTest, setIsGeneratingTest] = useState(false);
+
+    // Remediation State
+    const [remediationQueue, setRemediationQueue] = useState<string[]>([]);
+    const [showRemediationToast, setShowRemediationToast] = useState(false);
 
     // Syllabus State
     const [syllabus, setSyllabus] = useState<SyllabusData | null>(null);
@@ -521,12 +526,26 @@ const App: React.FC = () => {
                     ...res,
                     levelAssigned: data.level || 'Unknown',
                     score: data.score || 0,
-                    maxScore: data.maxScore || 0
+                    maxScore: data.maxScore || 0,
+                    failedConcepts: data.failedConcepts || []
                 };
             }
             return res;
         }));
+
+        if (data.failedConcepts && Array.isArray(data.failedConcepts) && data.failedConcepts.length > 0) {
+            setRemediationQueue(data.failedConcepts);
+            setShowRemediationToast(true);
+        }
+
         addLog({ type: 'info', source: 'LevelTest', summary: 'Received test results', details: data });
+    };
+
+    const handleRunRemediation = (selectedTopics: string[]) => {
+        setShowRemediationToast(false);
+        setRemediationQueue([]);
+        const prompt = `Fail on this topic, please generate: ${selectedTopics.join(', ')}`;
+        handleGenerate(prompt);
     };
 
     const handleRetryPlayground = async () => {
@@ -788,6 +807,13 @@ const App: React.FC = () => {
             {activeTab !== Tab.PRESENTATION && (
                 <ChatBot isOpen={isChatOpen} toggleOpen={() => setIsChatOpen(!isChatOpen)} apiKey={apiKey} model={model} history={chatHistory} setHistory={setChatHistory} logger={addLog} context={chatContext} />
             )}
+
+            <RemediationToast 
+                isVisible={showRemediationToast} 
+                concepts={remediationQueue} 
+                onDismiss={() => { setShowRemediationToast(false); setRemediationQueue([]); }}
+                onFixGaps={handleRunRemediation}
+            />
 
             <ApiLogPanel
                 logs={apiLogs}
