@@ -74,6 +74,7 @@ export interface TestResult {
   type?: 'comprehensive' | 'single_level';
   targetLevel?: string;
   failedConcepts?: string[];
+  skillBreakdown?: Record<string, number>;
 }
 
 export interface ApiLogEntry {
