@@ -88,8 +88,7 @@ export interface ApiLogEntry {
 
 export type Logger = (entry: Omit<ApiLogEntry, 'id' | 'timestamp'>) => void;
 
-// Changed from union type to string to support "Phase 1", "Phase 2", etc.
-export type CourseLevel = string; 
+export type CourseLevel = 'Introduction' | 'Beginner' | 'Intermediate' | 'Advanced' | 'Master';
 
 export interface SyllabusData {
   id?: string;
@@ -143,10 +142,12 @@ export interface NarrativeSegment {
 
 export interface SlideData {
   id: string;
+  type: 'generated' | 'title';
   name: string;
   svgContent: string;
   narrativeSegments: NarrativeSegment[];
   fullNarrative: string;
+  annotationData?: string; // Base64 png data of the annotations
 }
 
 export interface PlayerSettings {
@@ -157,8 +158,9 @@ export interface PlayerSettings {
   highlightColor: string;
   autoPlay: boolean;
   pacing: number; // Delay in ms between segments
-  staticSlideDuration: number; // NEW: Duration for slides with NO text/audio tags
-  minSlideDuration: number;    // NEW: Minimum duration for ANY slide, overriding short text audio
+  staticSlideDuration: number; // Duration for slides with NO text/audio tags
+  minSlideDuration: number;    // Minimum duration for ANY slide
+  autoPan: boolean; // New: Auto-pan to active element
 }
 
 export type PlayState = 'idle' | 'playing' | 'paused';
