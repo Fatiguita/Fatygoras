@@ -527,7 +527,8 @@ const App: React.FC = () => {
                     levelAssigned: data.level || 'Unknown',
                     score: data.score || 0,
                     maxScore: data.maxScore || 0,
-                    failedConcepts: data.failedConcepts || []
+                    failedConcepts: data.failedConcepts || [],
+                    skillBreakdown: data.skillBreakdown || {} // Capture the skill breakdown
                 };
             }
             return res;
