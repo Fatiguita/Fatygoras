@@ -73,6 +73,9 @@ const App: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState<Tab>(Tab.CLASSROOM);
     const [isNavVisible, setIsNavVisible] = useState(true);
+    
+    // Fullscreen State
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Content
     const [input, setInput] = useState('');
@@ -312,6 +315,13 @@ const App: React.FC = () => {
         else if (theme === AppTheme.SOLARIZED) { root.classList.add('solarized', 'light'); }
         else root.classList.add('light');
     }, [theme]);
+
+    // Fullscreen Listener
+    useEffect(() => {
+        const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', handleFsChange);
+        return () => document.removeEventListener('fullscreenchange', handleFsChange);
+    }, []);
 
     const resize = useCallback((e: MouseEvent) => {
         if (isResizing) {
@@ -677,40 +687,44 @@ const App: React.FC = () => {
                 <div className="fixed inset-0 z-[9999] cursor-ew-resize bg-transparent" />
             )}
 
-            <Header
-                theme={theme} setTheme={setTheme}
-                model={model} setModel={setModel}
-                apiKey={apiKey} setApiKey={setApiKey}
-                onClearSession={handleClearSession}
-                saveToLocal={saveToLocal} setSaveToLocal={setSaveToLocal}
-                toggleAdvancedMode={() => setIsAdvancedModeOpen(!isAdvancedModeOpen)}
-                onOpenSessionManager={() => setIsSessionManagerOpen(true)}
-                playgroundOpen={playgroundPanelOpen}
-                togglePlayground={() => setPlaygroundPanelOpen(!playgroundPanelOpen)}
-                hasPlaygroundCode={playgrounds.length > 0}
-                onResumeAutoSave={pendingResumeHandle ? handleResumeAutoSave : undefined}
-                isNavVisible={isNavVisible}
-                onToggleNav={() => setIsNavVisible(!isNavVisible)}
-            />
+            {!isFullscreen && (
+                <Header
+                    theme={theme} setTheme={setTheme}
+                    model={model} setModel={setModel}
+                    apiKey={apiKey} setApiKey={setApiKey}
+                    onClearSession={handleClearSession}
+                    saveToLocal={saveToLocal} setSaveToLocal={setSaveToLocal}
+                    toggleAdvancedMode={() => setIsAdvancedModeOpen(!isAdvancedModeOpen)}
+                    onOpenSessionManager={() => setIsSessionManagerOpen(true)}
+                    playgroundOpen={playgroundPanelOpen}
+                    togglePlayground={() => setPlaygroundPanelOpen(!playgroundPanelOpen)}
+                    hasPlaygroundCode={playgrounds.length > 0}
+                    onResumeAutoSave={pendingResumeHandle ? handleResumeAutoSave : undefined}
+                    isNavVisible={isNavVisible}
+                    onToggleNav={() => setIsNavVisible(!isNavVisible)}
+                />
+            )}
 
             <div className="flex-1 flex overflow-hidden relative">
                 <main className={`flex-1 overflow-y-auto w-full scroll-smooth flex flex-col ${playgroundPanelOpen ? 'hidden md:flex' : 'flex'}`}>
-                    <div className={`flex-shrink-0 w-full bg-white/50 dark:bg-gray-900/50 backdrop-blur sticky top-0 z-10 transition-all duration-300 ease-in-out overflow-hidden ${isNavVisible ? 'max-h-16 opacity-100 border-b border-gray-200 dark:border-gray-700' : 'max-h-0 opacity-0 border-none'}`}>
-                        <div className="flex overflow-x-auto no-scrollbar">
-                            <button onClick={() => setActiveTab(Tab.CLASSROOM)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.CLASSROOM ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}>Classroom</button>
-                            <button onClick={() => setActiveTab(Tab.SYLLABUS)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.SYLLABUS ? 'border-b-2 border-purple-500 text-purple-600 dark:text-purple-400' : 'text-gray-500 hover:text-gray-700'}`}>Syllabus Architect</button>
-                            <button onClick={() => setActiveTab(Tab.LEVEL_TEST)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.LEVEL_TEST ? 'border-b-2 border-orange-500 text-orange-600 dark:text-orange-400' : 'text-gray-500 hover:text-gray-700'}`}>Level Test</button>
-                            <button
-                                onClick={() => setActiveTab(Tab.PRESENTATION)}
-                                className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.PRESENTATION ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                                Theater Mode
-                            </button>
+                    {!isFullscreen && (
+                        <div className={`flex-shrink-0 w-full bg-white/50 dark:bg-gray-900/50 backdrop-blur sticky top-0 z-10 transition-all duration-300 ease-in-out overflow-hidden ${isNavVisible ? 'max-h-16 opacity-100 border-b border-gray-200 dark:border-gray-700' : 'max-h-0 opacity-0 border-none'}`}>
+                            <div className="flex overflow-x-auto no-scrollbar">
+                                <button onClick={() => setActiveTab(Tab.CLASSROOM)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.CLASSROOM ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}>Classroom</button>
+                                <button onClick={() => setActiveTab(Tab.SYLLABUS)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.SYLLABUS ? 'border-b-2 border-purple-500 text-purple-600 dark:text-purple-400' : 'text-gray-500 hover:text-gray-700'}`}>Syllabus Architect</button>
+                                <button onClick={() => setActiveTab(Tab.LEVEL_TEST)} className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.LEVEL_TEST ? 'border-b-2 border-orange-500 text-orange-600 dark:text-orange-400' : 'text-gray-500 hover:text-gray-700'}`}>Level Test</button>
+                                <button
+                                    onClick={() => setActiveTab(Tab.PRESENTATION)}
+                                    className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === Tab.PRESENTATION ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    Theater Mode
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Main content area based on activeTab */}
-                    <div className="max-w-5xl mx-auto px-4 py-8 pb-32 w-full flex-grow relative">
+                    <div className={`${(activeTab === Tab.PRESENTATION && isFullscreen) ? 'w-full h-full p-0 max-w-none' : 'max-w-5xl mx-auto px-4 py-8 pb-32 w-full'} flex-grow relative transition-all duration-300`}>
                         {activeTab === Tab.CLASSROOM && (
                             <>
                                 <div className="mb-12">
