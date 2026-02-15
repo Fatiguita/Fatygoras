@@ -153,6 +153,7 @@ export const convertWhiteboardsToSlides = (whiteboards: WhiteboardData[]): Slide
 
         return {
             id: wb.id,
+            type: 'generated',
             name: wb.topic, // Use whiteboard topic as slide name
             svgContent: content,
             // The `narrativeSegments` here will either be extracted from the SVG or be a single 'root-svg' fallback.
