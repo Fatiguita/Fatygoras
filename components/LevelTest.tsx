@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import Button from './Button';
 import Select from './Select';
-import { TestResult, GeminiModel } from '../types';
+import { TestResult, GeminiModel, CourseLevel } from '../types';
 import { MODEL_OPTIONS, DEFAULT_MODEL } from '../constants';
 
 interface LevelTestProps {
-    onStartTest: (topic: string, model: GeminiModel) => void;
+    onStartTest: (topic: string, model: GeminiModel, specificLevel?: CourseLevel) => void;
     isGenerating: boolean;
     results: TestResult[];
 }
@@ -13,6 +13,16 @@ interface LevelTestProps {
 const LevelTest: React.FC<LevelTestProps> = ({ onStartTest, isGenerating, results }) => {
     const [topic, setTopic] = useState('');
     const [selectedModel, setSelectedModel] = useState<GeminiModel>(DEFAULT_MODEL);
+    const [testMode, setTestMode] = useState<'comprehensive' | 'specific'>('comprehensive');
+    const [specificLevel, setSpecificLevel] = useState<CourseLevel>('Intermediate');
+
+    const LEVEL_OPTIONS: { label: string; value: CourseLevel }[] = [
+        { label: 'Introduction', value: 'Introduction' },
+        { label: 'Beginner', value: 'Beginner' },
+        { label: 'Intermediate', value: 'Intermediate' },
+        { label: 'Advanced', value: 'Advanced' },
+        { label: 'Master', value: 'Master' },
+    ];
 
     // Group results by topic for chart visualization
     const chartData = results.reduce((acc, curr) => {
@@ -28,11 +38,36 @@ const LevelTest: React.FC<LevelTestProps> = ({ onStartTest, isGenerating, result
                     Competency Level Test
                 </h2>
                 <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-8">
-                    Challenge yourself! The AI will generate a complete curriculum (Intro to Master) and create a personalized exam to determine your proficiency level.
+                    Challenge yourself! Take a full curriculum exam to find your placement, or practice a specific difficulty level.
                 </p>
 
                 <div className="max-w-xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
                     <div className="flex flex-col gap-4">
+                        
+                        {/* Mode Switcher */}
+                        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                            <button
+                                onClick={() => setTestMode('comprehensive')}
+                                className={`flex-1 py-1.5 px-3 rounded-md text-sm font-semibold transition-all ${
+                                    testMode === 'comprehensive' 
+                                    ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm' 
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                                }`}
+                            >
+                                Full Assessment
+                            </button>
+                            <button
+                                onClick={() => setTestMode('specific')}
+                                className={`flex-1 py-1.5 px-3 rounded-md text-sm font-semibold transition-all ${
+                                    testMode === 'specific' 
+                                    ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm' 
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                                }`}
+                            >
+                                Specific Level
+                            </button>
+                        </div>
+
                         <div className="flex flex-col sm:flex-row gap-3">
                             <div className="flex-[2]">
                                 <input
@@ -44,7 +79,9 @@ const LevelTest: React.FC<LevelTestProps> = ({ onStartTest, isGenerating, result
                                     disabled={isGenerating}
                                 />
                             </div>
-                            <div className="flex-1 min-w-[160px]">
+                            
+                            {/* Model Select */}
+                            <div className={`flex-1 min-w-[160px] ${testMode === 'specific' ? 'hidden sm:block' : ''}`}>
                                 <Select
                                     options={MODEL_OPTIONS}
                                     value={selectedModel}
@@ -55,16 +92,51 @@ const LevelTest: React.FC<LevelTestProps> = ({ onStartTest, isGenerating, result
                             </div>
                         </div>
 
+                        {/* Level Select (Conditional) */}
+                        {testMode === 'specific' && (
+                            <div className="flex flex-col sm:flex-row gap-3 animate-fade-in">
+                                <div className="flex-1">
+                                    <Select
+                                        label="Target Level"
+                                        options={LEVEL_OPTIONS}
+                                        value={specificLevel}
+                                        onChange={(e) => setSpecificLevel(e.target.value as CourseLevel)}
+                                        className="py-3"
+                                        disabled={isGenerating}
+                                    />
+                                </div>
+                                <div className="flex-1 sm:hidden">
+                                     <Select
+                                        label="AI Model"
+                                        options={MODEL_OPTIONS}
+                                        value={selectedModel}
+                                        onChange={(e) => setSelectedModel(e.target.value as GeminiModel)}
+                                        className="h-full py-3"
+                                        disabled={isGenerating}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         <Button 
-                            onClick={() => onStartTest(topic, selectedModel)} 
+                            onClick={() => onStartTest(topic, selectedModel, testMode === 'specific' ? specificLevel : undefined)} 
                             disabled={isGenerating || !topic.trim()} 
                             className="w-full bg-orange-600 hover:bg-orange-700 focus:ring-orange-500"
                         >
-                            {isGenerating ? 'Analyzing & Building Exam...' : 'Start Level Test'}
+                            {isGenerating 
+                                ? 'Analyzing & Building Exam...' 
+                                : testMode === 'specific' 
+                                    ? `Start ${specificLevel} Exam` 
+                                    : 'Start Full Assessment'
+                            }
                         </Button>
+                        
                         {isGenerating && (
                             <p className="text-xs text-gray-500 animate-pulse">
-                                This may take a minute. We are generating 5 syllabi and a quiz database.
+                                {testMode === 'comprehensive' 
+                                    ? "Generating 5 syllabi and a progressive quiz database..." 
+                                    : `Focusing specifically on ${specificLevel} content...`
+                                }
                             </p>
                         )}
                     </div>
@@ -93,9 +165,17 @@ const LevelTest: React.FC<LevelTestProps> = ({ onStartTest, isGenerating, result
                                             <span className="text-xs text-gray-400">{new Date(res.timestamp).toLocaleDateString()}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-600 dark:text-gray-400">Level: <span className="text-orange-500 font-semibold">{res.levelAssigned}</span></span>
-                                            {/* We might not have actual score data from the HTML playground unless we implement complex postMessage logic, so we track completion for now or mock the score reception */}
-                                            <span className="text-gray-500">Completed</span>
+                                            <div className="flex items-center gap-2">
+                                                {res.type === 'single_level' && (
+                                                    <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] uppercase font-bold">
+                                                        {res.targetLevel}
+                                                    </span>
+                                                )}
+                                                <span className="text-gray-600 dark:text-gray-400">Result: <span className="text-orange-500 font-semibold">{res.levelAssigned}</span></span>
+                                            </div>
+                                            {res.maxScore > 0 && (
+                                                <span className="text-gray-400 text-xs">Score: {res.score}/{res.maxScore}</span>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
