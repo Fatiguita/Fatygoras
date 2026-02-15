@@ -73,6 +73,7 @@ export interface TestResult {
   timestamp: number;
   type?: 'comprehensive' | 'single_level';
   targetLevel?: string;
+  failedConcepts?: string[];
 }
 
 export interface ApiLogEntry {
