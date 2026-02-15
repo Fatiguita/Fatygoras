@@ -32,6 +32,7 @@ import {
     generateWhiteboardBatch,
     generatePlayground,
     generateSyllabus,
+    generateProjectRoadmap,
     generateQuizDatabase,
     generateLevelTestPlayground,
     analyzeImageWithContext
@@ -585,6 +586,33 @@ const App: React.FC = () => {
         } catch (e) { console.error(e); } finally { setIsGeneratingSyllabus(false); }
     };
 
+    const handleGenerateProjectRoadmap = async (project: string, stack: string) => {
+        if (!apiKey) { alert("Please enter API Key"); return; }
+        setIsGeneratingSyllabus(true);
+        try {
+            const roadmap = await generateProjectRoadmap(apiKey, project, stack, model, addLog);
+            const timestamp = Date.now();
+            const newSyllabi = roadmap.map((item, idx) => ({
+                ...item,
+                id: (timestamp + idx).toString(),
+                timestamp: timestamp
+            }));
+            
+            // Add all phases to gallery
+            setSyllabusGallery(prev => [...newSyllabi, ...prev]);
+            
+            // Set first phase as active if any
+            if(newSyllabi.length > 0) {
+                setSyllabus(newSyllabi[0]);
+            }
+        } catch (e) {
+             console.error(e);
+             alert("Failed to architect project.");
+        } finally {
+            setIsGeneratingSyllabus(false);
+        }
+    };
+
     const handleWhiteboardRefine = async (base64Image: string, prompt: string) => {
         setIsRefining(true);
         setIsChatOpen(true);
@@ -704,6 +732,7 @@ const App: React.FC = () => {
                                 data={syllabus}
                                 gallery={syllabusGallery}
                                 onGenerate={handleGenerateSyllabus}
+                                onGenerateProject={handleGenerateProjectRoadmap}
                                 isLoading={isGeneratingSyllabus}
                                 onImportLevel={(topics, mainTopic) => handleGenerate(topics.join(", "), mainTopic)}
                                 onDelete={(id) => setSyllabusGallery(prev => prev.filter(s => s.id !== id))}
