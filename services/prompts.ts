@@ -1,3 +1,4 @@
+
 export const ANALYSIS_SYSTEM_PROMPT = `
 You are an expert curriculum analyzer. Your goal is to determine if a user's request is a complex, abstract topic that requires breaking down into smaller sub-concepts for effective teaching, or if it is a specific, singular query.
 
@@ -244,7 +245,8 @@ Structure:
        "question": "Question text...",
        "options": ["A", "B", "C", "D"],
        "correctAnswer": "A",
-       "explanation": "Why A is correct."
+       "explanation": "Why A is correct.",
+       "concept": "Specific concept name (e.g. 'Photosynthesis')"
     },
     ...
   ]
@@ -264,6 +266,7 @@ Features required in the HTML/JS:
 3. **UI**: Use Tailwind CSS for a professional "Exam" look (different from the standard playful playground). Also display wrong or correct answer after user completes exercise.
 4. **Results**: At the end, calculate a Score and assign a "Competency Level" (e.g., "Novice", "Expert").
 5. **No External Logic**: Embed the provided JSON question database directly into the JavaScript variable inside the HTML.
+6. **Concept Tracking**: Ensure every question object has a "concept" field (e.g., "Mitochondria", "Kinematics"). Track which concepts the user failed.
 
 - **AUDIO CAPABILITY**:
    If the test requires audio (e.g. listening comprehension), trigger it via:
@@ -283,13 +286,17 @@ When the test finishes (at the results screen), you **MUST** execute the followi
 
 \`\`\`javascript
 try {
+  // Collect failed concepts from incorrect answers
+  // Example: const failedConcepts = wrongAnswers.map(q => q.concept).filter((v, i, a) => a.indexOf(v) === i); // unique
+
   window.parent.postMessage({
     type: 'FATY_TEST_COMPLETE',
     payload: {
       score: YOUR_CALCULATED_SCORE_VARIABLE,
       maxScore: TOTAL_QUESTIONS_VARIABLE,
       level: ASSIGNED_LEVEL_STRING_VARIABLE,
-      topic: "TOPIC_NAME"
+      topic: "TOPIC_NAME",
+      failedConcepts: [] // Replace with actual array of strings of failed concepts
     }
   }, '*');
 } catch (e) { console.error("Could not send results", e); }
