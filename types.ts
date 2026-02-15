@@ -86,7 +86,8 @@ export interface ApiLogEntry {
 
 export type Logger = (entry: Omit<ApiLogEntry, 'id' | 'timestamp'>) => void;
 
-export type CourseLevel = 'Introduction' | 'Beginner' | 'Intermediate' | 'Advanced' | 'Master';
+// Changed from union type to string to support "Phase 1", "Phase 2", etc.
+export type CourseLevel = string; 
 
 export interface SyllabusData {
   id?: string;
