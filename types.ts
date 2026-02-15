@@ -71,6 +71,8 @@ export interface TestResult {
   maxScore: number;
   levelAssigned: string;
   timestamp: number;
+  type?: 'comprehensive' | 'single_level';
+  targetLevel?: string;
 }
 
 export interface ApiLogEntry {
