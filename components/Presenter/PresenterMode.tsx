@@ -15,7 +15,7 @@ import { cancelAudio } from '../../services/audioService';
 
 const DEFAULT_SETTINGS: PlayerSettings = {
     voiceURI: null,
-    rate: 1,
+    rate: 0.5,
     pitch: 1,
     themeColor: '#4f46e5',
     highlightColor: '#f59e0b',
