@@ -435,17 +435,21 @@ const App: React.FC = () => {
         }
     };
 
-    const handleCreateLevelTest = async (topic: string, selectedModel: GeminiModel) => {
+    const handleCreateLevelTest = async (topic: string, selectedModel: GeminiModel, specificLevel?: CourseLevel) => {
         if (!apiKey) { alert("Please enter API Key"); return; }
         setIsGeneratingTest(true);
         setPlaygroundPanelOpen(true);
         setActivePlaygroundTab('test');
 
         const tempId = Date.now().toString();
+        const description = specificLevel 
+            ? `Test: ${topic} (${specificLevel})`
+            : `Test: ${topic}`;
+
         const placeholder: PlaygroundCode = {
             id: tempId,
             html: '',
-            description: `Test: ${topic}`,
+            description,
             timestamp: Date.now(),
             status: 'loading',
             type: 'test',
@@ -457,7 +461,7 @@ const App: React.FC = () => {
         setActivePlaygroundId(tempId);
 
         try {
-            const levels: CourseLevel[] = ['Introduction', 'Beginner', 'Intermediate', 'Advanced', 'Master'];
+            const levels: CourseLevel[] = specificLevel ? [specificLevel] : ['Introduction', 'Beginner', 'Intermediate', 'Advanced', 'Master'];
             let accumulatedSyllabusContext = "";
 
             for (const level of levels) {
@@ -476,14 +480,15 @@ const App: React.FC = () => {
                 }
             }
 
-            const quizDbJson = await generateQuizDatabase(apiKey, topic, accumulatedSyllabusContext, selectedModel, addLog);
+            const quizDbJson = await generateQuizDatabase(apiKey, topic, accumulatedSyllabusContext, selectedModel, addLog, specificLevel);
             const testApp = await generateLevelTestPlayground(
                 apiKey,
                 topic,
                 quizDbJson,
                 selectedModel,
                 addLog,
-                topic
+                topic,
+                specificLevel
             );
 
             setPlaygrounds(prev => prev.map(p => p.id === tempId ? { ...testApp, status: 'ready', id: tempId, type: 'test', relatedTopic: topic, model: selectedModel } : p));
@@ -494,7 +499,9 @@ const App: React.FC = () => {
                 levelAssigned: 'Pending',
                 score: 0,
                 maxScore: 0,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                type: specificLevel ? 'single_level' : 'comprehensive',
+                targetLevel: specificLevel
             }]);
 
         } catch (error) {
@@ -529,9 +536,14 @@ const App: React.FC = () => {
         const modelToUse = pg.model || model;
 
         if (pg.type === 'test') {
-            const topic = pg.relatedTopic || pg.description.replace('Test: ', '');
+            const topic = pg.relatedTopic || pg.description.replace('Test: ', '').replace(/\s\(.*\)$/, '');
+            // Simple heuristic to extract level if present in description for retry, 
+            // though keeping track via state would be cleaner, reconstructing from description works for now.
+            const levelMatch = pg.description.match(/\((.*?)\)$/);
+            const level = levelMatch ? levelMatch[1] as CourseLevel : undefined;
+
             closePlayground(pg.id);
-            handleCreateLevelTest(topic, modelToUse);
+            handleCreateLevelTest(topic, modelToUse, level);
             return;
         }
 
