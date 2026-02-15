@@ -1,161 +1,166 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Eraser } from 'lucide-react'; // Importing Eraser icon from lucide-react
-
-interface AnnotationLayerProps {
-    active: boolean; // Controls whether drawing is enabled
-    color: string;   // The drawing color
+export enum AppTheme {
+  LIGHT = 'light',
+  DARK = 'dark',
+  CHALKBOARD = 'chalkboard',
+  BLUEPRINT = 'blueprint',
+  NARUTO = 'naruto',
+  POKEMON = 'pokemon',
+  MATRIX = 'matrix',
+  NEON = 'neon',
+  SAKURA = 'sakura',
+  WINDOWS_XP = 'windows-xp',
+  NARUTO_FIRE = 'naruto-fire',
+  L_DEATHNOTE = 'l-deathnote',
+  RETRO_ARCADE = 'retro-arcade',
+  SOLARIZED = 'solarized'
 }
 
-/**
- * A React component that provides an annotation layer over the presentation slides.
- * It allows users to draw freehand lines on a transparent HTML5 canvas.
- *
- * @param {AnnotationLayerProps} { active, color }
- * @returns {JSX.Element} The annotation layer component.
- */
-export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ active, color }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null); // Ref to the canvas HTML element
-    const [isDrawing, setIsDrawing] = useState(false); // State to track if the user is currently drawing
 
-    // Effect to set up and resize the canvas when the component mounts or dependencies change.
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        
-        // Resize canvas to match its parent's dimensions.
-        // This is crucial to ensure the canvas drawing aligns with the SVG content.
-        const parent = canvas.parentElement;
-        if (parent) {
-            canvas.width = parent.clientWidth;
-            canvas.height = parent.clientHeight;
-        }
+export enum GeminiModel {
+  GEMINI_3_FLASH = 'gemini-3-flash-preview',
+  GEMINI_3_PRO = 'gemini-3-pro-preview',
+  GEMINI_2_5_FLASH = 'gemini-2.5-flash',
+  GEMINI_2_5_PRO = 'gemini-2.5-pro',
+}
 
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.lineCap = 'round';   // Rounded line caps for a smoother drawing appearance
-            ctx.lineJoin = 'round';  // Rounded line joins for corners
-            ctx.lineWidth = 4;       // Default line width for drawing
-            ctx.strokeStyle = color; // Set stroke color from props for drawing
-        }
-    }, [color]); // Re-run if the drawing color changes (e.g., from settings)
+export interface WhiteboardData {
+  id: string;
+  topic: string;
+  svgContent: string;
+  explanation: string;
+  timestamp: number;
+  audioSensitivity?: boolean;
+}
 
-    /**
-     * Helper to extract (x,y) coordinates from both Mouse and Touch events relative to the canvas.
-     * Accounts for CSS transforms (zoom) by calculating the scale ratio between
-     * the internal canvas size and the visual bounding rectangle.
-     */
-    const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return { x: 0, y: 0 };
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  content: string;
+  image?: string; // Base64 string (raw data without prefix preferably for API, or full for display)
+  timestamp: number;
+}
 
-        const rect = canvas.getBoundingClientRect();
-        let clientX, clientY;
+export interface SessionData {
+  whiteboards: WhiteboardData[];
+  chatHistory: ChatMessage[];
+  theme: AppTheme;
+  apiKey?: string;
+}
 
-        if ('touches' in e) {
-            // Use the first finger for drawing
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else {
-            clientX = (e as React.MouseEvent).clientX;
-            clientY = (e as React.MouseEvent).clientY;
-        }
+export interface AnalysisResult {
+  isAbstract: boolean;
+  topics: string[];
+  audioSensitivity: boolean;
+}
 
-        // Calculate scale factors to map screen pixels to canvas bitmap pixels
-        // This fixes offset issues when the parent container is zoomed/scaled via CSS
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
+export interface PlaygroundCode {
+  id: string;
+  html: string;
+  description: string;
+  timestamp: number;
+  status: 'loading' | 'ready' | 'error';
+  type: 'practice' | 'test';
+  relatedTopic?: string;
+  model?: GeminiModel;
+}
 
-        return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY
-        };
-    };
+export interface TestResult {
+  id: string;
+  topic: string;
+  score: number;
+  maxScore: number;
+  levelAssigned: string;
+  timestamp: number;
+  type?: 'comprehensive' | 'single_level';
+  targetLevel?: string;
+  failedConcepts?: string[];
+  skillBreakdown?: Record<string, number>;
+}
 
-    /**
-     * Handles the mouse/touch down event to initiate drawing.
-     * Starts a new path on the canvas context.
-     * @param {React.MouseEvent | React.TouchEvent} e The event object.
-     */
-    const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!active) return; // Only allow drawing if the annotation layer is active
-        const ctx = canvasRef.current?.getContext('2d');
-        if (!ctx) return;
-        
-        const { x, y } = getCoordinates(e);
+export interface ApiLogEntry {
+  id: string;
+  timestamp: number;
+  type: 'request' | 'response' | 'error' | 'info';
+  source: string;
+  summary: string;
+  details?: any;
+}
 
-        ctx.beginPath(); // Begin a new drawing path
-        ctx.moveTo(x, y); // Move to start
-        setIsDrawing(true); // Set drawing state to true
-    };
+export type Logger = (entry: Omit<ApiLogEntry, 'id' | 'timestamp'>) => void;
 
-    /**
-     * Handles the mouse/touch move event to continue drawing.
-     * Draws a line from the previous point to the current position.
-     * @param {React.MouseEvent | React.TouchEvent} e The event object.
-     */
-    const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        // Only draw if `isDrawing` is true and the layer is `active`
-        if (!isDrawing || !active) return; 
-        
-        // Prevent scrolling on touch devices while drawing
-        if ('touches' in e && e.cancelable) {
-            e.preventDefault();
-        }
+export type CourseLevel = 'Introduction' | 'Beginner' | 'Intermediate' | 'Advanced' | 'Master';
 
-        const ctx = canvasRef.current?.getContext('2d');
-        if (!ctx) return;
-        
-        const { x, y } = getCoordinates(e);
-        
-        ctx.lineTo(x, y); // Draw a line segment
-        ctx.stroke(); // Render the current path
-    };
+export interface SyllabusData {
+  id?: string;
+  timestamp?: number;
+  level: CourseLevel;
+  topic: string;
+  description: string;
+  concepts: string[];
+}
 
-    /**
-     * Clears all drawings from the canvas.
-     */
-    const clear = () => {
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (canvas && ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear all pixels in the canvas
-        }
-    };
+export interface ExportedSessionManifest {
+  version: string;
+  createdAt: number;
+  theme: AppTheme;
+  model: GeminiModel;
+  chatHistory: ChatMessage[];
+  whiteboards: Array<{
+    id: string;
+    topic: string;
+    explanation: string;
+    timestamp: number;
+    filePath: string;
+    audioSensitivity?: boolean;
+  }>;
+  playgrounds: Array<{
+    id: string;
+    description: string;
+    timestamp: number;
+    filePath: string;
+  }>;
+  testResults?: TestResult[];
+  syllabus?: SyllabusData | null;
+  syllabusGallery?: SyllabusData[];
+}
 
-    return (
-        <>
-            <canvas 
-                ref={canvasRef}
-                onMouseDown={startDraw}
-                onMouseMove={draw}
-                onMouseUp={() => setIsDrawing(false)}
-                onMouseLeave={() => setIsDrawing(false)}
-                
-                onTouchStart={startDraw}
-                onTouchMove={draw}
-                onTouchEnd={() => setIsDrawing(false)}
-                
-                // Dynamically apply cursor and pointer-events based on `active` state.
-                // touch-none ensures browser scrolling doesn't interfere with drawing.
-                className={`absolute inset-0 z-10 touch-none ${active ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'}`}
-            />
-            {active && ( // Render drawing controls only if the annotation layer is active
-                <div className="absolute top-4 right-4 z-20 bg-white shadow-md p-1 rounded-lg flex gap-1 pointer-events-auto">
-                    <button 
-                        onClick={clear} 
-                        className="p-2 hover:bg-red-50 text-red-500 rounded" 
-                        title="Clear All Drawings"
-                    >
-                        <Eraser size={18} /> {/* Lucide Eraser icon */}
-                    </button>
-                    {/* Display current drawing color */}
-                    <div 
-                        className="w-8 h-8 rounded-full border-2 border-white shadow-sm" 
-                        style={{backgroundColor: color}}
-                        title={`Current drawing color: ${color}`}
-                    ></div>
-                </div>
-            )}
-        </>
-    );
-};
+export interface SavedSessionMetadata {
+  id: string;
+  name: string;
+  group?: string;
+  timestamp: number;
+  topicCount: number;
+}
+
+// --- NEW: PRESENTATION TYPES ---
+
+export interface NarrativeSegment {
+  id: string;
+  text: string;
+  lang?: string; // Added language support
+}
+
+export interface SlideData {
+  id: string;
+  type: 'generated' | 'title';
+  name: string;
+  svgContent: string;
+  narrativeSegments: NarrativeSegment[];
+  fullNarrative: string;
+  annotationData?: string; // Base64 png data of the annotations
+}
+
+export interface PlayerSettings {
+  voiceURI: string | null;
+  rate: number;
+  pitch: number;
+  themeColor: string;
+  highlightColor: string;
+  autoPlay: boolean;
+  pacing: number; // Delay in ms between segments
+  staticSlideDuration: number; // Duration for slides with NO text/audio tags
+  minSlideDuration: number;    // Minimum duration for ANY slide
+  autoPan: boolean; // New: Auto-pan to active element
+}
+
+export type PlayState = 'idle' | 'playing' | 'paused';
