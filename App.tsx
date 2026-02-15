@@ -611,7 +611,8 @@ const App: React.FC = () => {
         try {
             const result = await generateSyllabus(apiKey, topic, level, model, addLog, context, description);
             const newSyllabus: SyllabusData = { ...result, id: Date.now().toString(), timestamp: Date.now() };
-            setSyllabus(newSyllabus);
+            // Do NOT overwrite current syllabus selection state to prevent form data loss
+            // setSyllabus(newSyllabus); 
             setSyllabusGallery(prev => [newSyllabus, ...prev]);
         } catch (e) { console.error(e); } finally { setIsGeneratingSyllabus(false); }
     };
@@ -631,10 +632,10 @@ const App: React.FC = () => {
             // Add all phases to gallery
             setSyllabusGallery(prev => [...newSyllabi, ...prev]);
             
-            // Set first phase as active if any
-            if(newSyllabi.length > 0) {
-                setSyllabus(newSyllabi[0]);
-            }
+            // Do not force select the first phase to preserve user input
+            // if(newSyllabi.length > 0) {
+            //    setSyllabus(newSyllabi[0]);
+            // }
         } catch (e) {
              console.error(e);
              alert("Failed to architect project.");
