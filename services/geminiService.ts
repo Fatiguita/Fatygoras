@@ -6,6 +6,7 @@ import {
   PLAYGROUND_SYSTEM_PROMPT, 
   CHATBOT_SYSTEM_PROMPT, 
   SYLLABUS_SYSTEM_PROMPT,
+  PROJECT_ARCHITECT_SYSTEM_PROMPT,
   VISION_SYSTEM_PROMPT,
   QUIZ_DB_SYSTEM_PROMPT,
   LEVEL_TEST_PLAYGROUND_PROMPT
@@ -249,6 +250,39 @@ export const generateSyllabus = async (
     return JSON.parse(text) as SyllabusData;
   } catch (error) {
     console.error("Syllabus generation failed", error);
+    throw error;
+  }
+};
+
+export const generateProjectRoadmap = async (
+  apiKey: string, 
+  project: string, 
+  techStack: string, 
+  modelId: string, 
+  logger?: Logger
+): Promise<SyllabusData[]> => {
+  const ai = getClient(apiKey);
+  
+  if (logger) logger({ type: 'request', source: 'generateProjectRoadmap', summary: `Generating roadmap for ${project}`, details: { techStack } });
+
+  const prompt = `Project Goal: ${project}\nTech Stack / Constraints: ${techStack || "Best practices"}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: prompt,
+      config: {
+        systemInstruction: PROJECT_ARCHITECT_SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+      }
+    });
+
+    const text = response.text || "[]";
+    if (logger) logger({ type: 'response', source: 'generateProjectRoadmap', summary: 'Roadmap generated', details: { text } });
+    
+    return JSON.parse(text) as SyllabusData[];
+  } catch (error) {
+    console.error("Roadmap generation failed", error);
     throw error;
   }
 };
