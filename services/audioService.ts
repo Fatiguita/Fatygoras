@@ -326,6 +326,8 @@ export const speakLocalAndWait = (text: string, lang: string, rate: number, pitc
         
         msg.onerror = (e: SpeechSynthesisErrorEvent) => {
             console.error(`[Audio] Local TTS Error:`, e.error);
+            // If the error is 'interrupted' or 'canceled', it often means a new utterance started or cancel() was called.
+            // We pass this error up, and speakAndWait MUST check the session ID.
             reject(new Error(`Local TTS Error: ${e.error}`)); 
         };
 
@@ -371,6 +373,14 @@ export const speakAndWait = async (
       await speakLocalAndWait(text, lang, rate, pitch, voiceURI, mySessionId);
   } catch (err: any) {
       if (err.message === "Playback Cancelled" || err.message === "Empty text") throw err;
+      
+      // CRITICAL FIX: If local TTS failed because we are cancelling (e.g. user clicked twice rapidly),
+      // the error might be "interrupted". We MUST NOT fallback to Google if the session has moved on.
+      if (playbackSessionId !== mySessionId) {
+          console.log(`[Audio] Session ID changed (Current: ${playbackSessionId}, My: ${mySessionId}). Aborting fallback.`);
+          throw new Error("Playback Cancelled");
+      }
+
       console.warn(`[Audio] Local TTS Failed. Trying Google TTS fallback.`, err);
       try {
           await playGoogleFallbackAndWait(text, lang, mySessionId);
@@ -390,6 +400,10 @@ export const speak = (
     rate: number = 1, 
     pitch: number = 1
 ) => {
+  // CRITICAL FIX: Always cancel previous audio when starting a new fire-and-forget speak.
+  // This increments playbackSessionId, ensuring any currently running async fallbacks abort immediately.
+  cancelAudio();
+  
   speakAndWait(text, lang, strictMode, rate, pitch, null)
     .catch(e => {
         if (e && e.message !== "Playback Cancelled" && e.message !== "Empty text provided for speakAndWait") {
