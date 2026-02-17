@@ -161,6 +161,7 @@ export interface PlayerSettings {
   staticSlideDuration: number; // Duration for slides with NO text/audio tags
   minSlideDuration: number;    // Minimum duration for ANY slide
   autoPan: boolean; // New: Auto-pan to active element
+  maxAutoZoom: number; // New: Max zoom level for auto-pan
 }
 
 export type PlayState = 'idle' | 'playing' | 'paused';
