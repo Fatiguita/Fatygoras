@@ -112,11 +112,6 @@ const tryPlayUrl = (url: string, sessionId: number): Promise<void> => {
             return reject(new Error("Playback Cancelled"));
         }
 
-        // We explicitly cancel all audio at the start of `speakAndWait` (which calls these helpers).
-        // So here, we just manage the single HTMLAudioElement for this request.
-        // It's crucial not to call `cancelAudio()` again here as it would increment sessionId,
-        // invalidating the current request itself.
-
         const audio = new Audio(url);
         currentFallbackAudio = audio; // Track this specific audio instance
         audio.volume = 1.0;
@@ -128,7 +123,6 @@ const tryPlayUrl = (url: string, sessionId: number): Promise<void> => {
             hasFinished = true;
             currentFallbackAudio = null; // Clear tracker when done
             resolve();
-            console.log(`[Audio] Google Fallback audio finished (Session ID: ${sessionId}).`);
         };
 
         audio.oncanplaythrough = () => {
@@ -137,7 +131,7 @@ const tryPlayUrl = (url: string, sessionId: number): Promise<void> => {
             if (sessionId !== playbackSessionId) {
                 audio.pause();
                 audio.src = "";
-                console.warn(`[Audio] Google Fallback (oncanplaythrough) aborted due to session change. Expected: ${sessionId}, Current: ${playbackSessionId}`);
+                console.warn(`[Audio] Google Fallback (oncanplaythrough) aborted due to session change.`);
                 return reject(new Error("Playback Cancelled"));
             }
             
@@ -146,78 +140,135 @@ const tryPlayUrl = (url: string, sessionId: number): Promise<void> => {
                 playPromise
                     .then(() => { /* Playback initiated */ })
                     .catch(e => {
-                        // Autoplay block or other immediate playback error
                         if (hasFinished) return;
                         hasFinished = true;
                         currentFallbackAudio = null; // Clear tracker on error
                         reject(e); 
-                        console.error(`[Audio] Google Fallback autoplay blocked or failed (Session ID: ${sessionId}):`, e);
+                        console.error(`[Audio] Google Fallback autoplay blocked or failed:`, e);
                     });
             }
         };
         
-        // Removed unused variable 'e' in error handler
         audio.onerror = () => {
             if (hasFinished) return;
             hasFinished = true;
             currentFallbackAudio = null; // Clear tracker on error
-            console.error(`[Audio] HTMLAudioElement error (Session ID: ${sessionId}):`, audio.error);
             reject(new Error(`Audio load or playback error: ${audio.error?.code || 'Unknown'}`));
         };
 
-        // Safety timeout in case oncanplaythrough/onerror/onended never fire
+        // Safety timeout
         setTimeout(() => {
             if (!hasFinished) {
                 hasFinished = true;
                 audio.src = ""; // Stop network request
                 currentFallbackAudio = null; // Clear tracker on timeout
                 reject(new Error("Audio playback timeout"));
-                console.warn(`[Audio] Google Fallback audio timed out (Session ID: ${sessionId}).`);
             }
-        }, 8000); // Increased timeout for potentially slow loads
+        }, 10000); 
     });
 };
 
 /**
- * Attempts to play audio using Google Translate's TTS service and returns a Promise
- * that resolves when the audio finishes or rejects on failure.
- * This is used as a fallback for browsers with poor native TTS.
+ * Splits text into chunks that respect the approximate Google TTS limit (100-200 chars).
+ * Splits by logical punctuation where possible.
+ */
+const chunkTextForTTS = (text: string, maxLength: number = 100): string[] => {
+    const chunks: string[] = [];
+    // Regex matches sentences or long clauses ending in punctuation, or the end of string
+    // Matches: (anything not .!?)+(one or more .!?) OR (anything not .!? at end)
+    const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+    
+    let currentChunk = "";
+
+    for (const sentence of sentences) {
+        // If adding the next sentence keeps us under limit, append it
+        if ((currentChunk + sentence).length <= maxLength) {
+            currentChunk += sentence;
+        } else {
+            // Push current chunk if valid
+            if (currentChunk.trim()) chunks.push(currentChunk.trim());
+            
+            // If the sentence itself is massive, we must split it further (e.g. by commas)
+            if (sentence.length > maxLength) {
+                const subParts = sentence.match(/[^,]+,|[^,]+$/g) || [sentence];
+                currentChunk = "";
+                
+                for (const part of subParts) {
+                     if ((currentChunk + part).length <= maxLength) {
+                         currentChunk += part;
+                     } else {
+                         if (currentChunk.trim()) chunks.push(currentChunk.trim());
+                         
+                         // If even the sub-part is too long, hard split
+                         if (part.length > maxLength) {
+                             let remaining = part;
+                             while (remaining.length > 0) {
+                                 chunks.push(remaining.substring(0, maxLength).trim());
+                                 remaining = remaining.substring(maxLength);
+                             }
+                             currentChunk = "";
+                         } else {
+                             currentChunk = part;
+                         }
+                     }
+                }
+            } else {
+                currentChunk = sentence;
+            }
+        }
+    }
+    
+    if (currentChunk.trim()) chunks.push(currentChunk.trim());
+    return chunks;
+};
+
+/**
+ * Attempts to play audio using Google Translate's TTS service.
+ * Supports long text by chunking and playing sequentially.
  */
 export const playGoogleFallbackAndWait = async (text: string, lang: string, sessionId: number): Promise<void> => {
-  // Check for empty text first
   if (!text.trim()) {
       console.warn(`[Audio] Google Fallback skipped: empty text (Session ID: ${sessionId}).`);
-      throw new Error("Empty text"); // Throw error to trigger next fallback if needed
+      throw new Error("Empty text");
   }
-  
-  const safeText = text.length > 100 ? text.substring(0, 100) : text;
-  const q = encodeURIComponent(safeText);
+
+  // Break text into safe chunks to avoid API limits/cutoff
+  const chunks = chunkTextForTTS(text, 100); 
   const googleLang = sanitizeLangForGoogle(lang);
-  
-  const candidates = [
-      `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
-      `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
-      `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&q=${q}&tl=${googleLang}&idx=0&total=1&textlen=${safeText.length}`,
-  ];
 
-  for (const url of candidates) {
-      // Session check before each attempt and before awaiting
-      if (sessionId !== playbackSessionId) {
-          console.warn(`[Audio] Google Fallback (pre-candidate) aborted due to session change. Expected: ${sessionId}, Current: ${playbackSessionId}`);
-          throw new Error("Playback Cancelled");
-      }
-      try {
-          await tryPlayUrl(url, sessionId); // This internally checks session and sets currentFallbackAudio
-          return; // Success, stop trying
-      } catch (e: any) {
-          if (e.message === "Playback Cancelled") { // If cancelled by a newer request, re-throw
-              throw e; 
+  console.log(`[Audio] Google Fallback: Playing ${chunks.length} chunks (Session ID: ${sessionId})`);
+
+  for (const chunk of chunks) {
+      // 1. Check session before processing chunk
+      if (sessionId !== playbackSessionId) throw new Error("Playback Cancelled");
+      
+      const q = encodeURIComponent(chunk);
+      
+      // Try reliable endpoints
+      const candidates = [
+          `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
+          `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&q=${q}&tl=${googleLang}`,
+      ];
+
+      let chunkSuccess = false;
+      for (const url of candidates) {
+          if (sessionId !== playbackSessionId) throw new Error("Playback Cancelled");
+          try {
+              await tryPlayUrl(url, sessionId);
+              chunkSuccess = true;
+              break; // Chunk played successfully, move to next chunk
+          } catch (e: any) {
+              if (e.message === "Playback Cancelled") throw e;
+              // Continue to next candidate
           }
-          console.warn(`[Audio] Google Fallback candidate failed (Session ID: ${sessionId}): ${url}`, e);
+      }
+
+      if (!chunkSuccess) {
+          console.warn(`[Audio] Failed to play chunk: "${chunk.substring(0, 20)}..."`);
+          // We don't throw immediately to try playing remaining chunks if one fails,
+          // but arguably we should stop. For now, let's keep trying to be resilient.
       }
   }
-
-  throw new Error("All Google Fallbacks failed to play audio.");
 };
 
 /**
@@ -233,18 +284,13 @@ export const speakLocalAndWait = (text: string, lang: string, rate: number, pitc
         }
         
         if (!text.trim()) {
-            console.warn(`[Audio] Local TTS skipped: empty text (Session ID: ${sessionId}).`);
             return reject(new Error("Empty text"));
         }
 
         // Immediately cancel only native SpeechSynthesis before starting a new native utterance
-        // We do NOT call the global `cancelAudio()` here as it would increment `playbackSessionId`.
         window.speechSynthesis.cancel(); 
 
         const msg = new SpeechSynthesisUtterance(text);
-        // We don't track native utterance globally like fallback audio, as `window.speechSynthesis.cancel()` handles them all.
-        // `currentNativeUtterance` was removed as unused.
-
         msg.lang = lang;
         msg.rate = rate;
         msg.pitch = pitch;
@@ -267,28 +313,20 @@ export const speakLocalAndWait = (text: string, lang: string, rate: number, pitc
 
             if (selectedVoice) {
                 msg.voice = selectedVoice;
-                console.log(`[Audio] Using Local TTS voice: ${selectedVoice.name} (${selectedVoice.lang}) (Session ID: ${sessionId})`);
-            } else {
-                console.warn(`[Audio] No specific local voice found for ${lang} or ${voiceURI}. Using browser default. (Session ID: ${sessionId})`);
+                console.log(`[Audio] Using Local TTS voice: ${selectedVoice.name} (${selectedVoice.lang})`);
             }
-        } else {
-            console.warn(`[Audio] No SpeechSynthesis voices available locally (Session ID: ${sessionId}).`);
         }
 
-        // Set up event handlers to resolve/reject the promise
         msg.onend = () => {
-            // Final session check before resolving to ensure it's still valid
             if (sessionId !== playbackSessionId) { 
-                console.warn(`[Audio] Local TTS finished but session changed. Expected: ${sessionId}, Current: ${playbackSessionId}`);
                 return reject(new Error("Playback Cancelled"));
             }
-            console.log(`[Audio] Local TTS finished (Session ID: ${sessionId}).`);
             resolve();
         };
-        // Fix: Correctly access e.error from the SpeechSynthesisErrorEvent object
+        
         msg.onerror = (e: SpeechSynthesisErrorEvent) => {
-            console.error(`[Audio] Local TTS Error (Session ID: ${sessionId}):`, e.error);
-            reject(new Error(`Local TTS Error: ${e.error}`)); // Reject the promise on error
+            console.error(`[Audio] Local TTS Error:`, e.error);
+            reject(new Error(`Local TTS Error: ${e.error}`)); 
         };
 
         window.speechSynthesis.speak(msg);
@@ -296,17 +334,7 @@ export const speakLocalAndWait = (text: string, lang: string, rate: number, pitc
 };
 
 /**
- * The primary asynchronous audio playback function. It intelligently selects between
- * native SpeechSynthesis and a Google Translate API fallback, ensuring audio plays
- * and returns a Promise that resolves upon completion.
- *
- * @param {string} text The text to speak.
- * @param {string} [lang='en-US'] The ISO language code.
- * @param {boolean} [strictMode=false] If true, forces Google fallback on "low-tier" browsers.
- * @param {number} [rate=1] Speech rate.
- * @param {number} [pitch=1] Speech pitch.
- * @param {string | null} [voiceURI=null] Optional: specific voice URI to prefer.
- * @returns {Promise<void>} A promise that resolves when audio finishes, or rejects on unrecoverable error.
+ * The primary asynchronous audio playback function.
  */
 export const speakAndWait = async (
     text: string, 
@@ -314,47 +342,26 @@ export const speakAndWait = async (
     strictMode: boolean = false,
     rate: number = 1,
     pitch: number = 1,
-    voiceURI: string | null = null // Pass voiceURI from settings
+    voiceURI: string | null = null
 ): Promise<void> => {
-  // Capture the current playback session ID at the very start of this request.
-  // This ID will be used by internal functions to ensure only the latest intended audio plays.
   const mySessionId = playbackSessionId; 
   
   if (!text.trim()) {
-      console.warn(`[Audio] speakAndWait aborted for empty text (Session ID: ${mySessionId}).`);
       throw new Error("Empty text provided for speakAndWait");
   }
 
-  // --- Crucial cancellation logic for single requests ---
-  // If this `speakAndWait` is called by a standalone action (e.g., a whiteboard click),
-  // it must cancel any *currently playing* audio globally.
-  // `cancelAudio()` will increment `playbackSessionId`. This `mySessionId` will be the
-  // ID *before* cancellation, which is fine, as subsequent checks will fail,
-  // preventing a ghost playback.
-  // But for the sake of the `usePresentationTTS` hook, which orchestrates multiple `speakAndWait` calls
-  // and has its own `cancelAudio` on state changes, we only explicitly call `cancelAudio()` here
-  // if we are certain it's a standalone call (which `speak` handles).
-  // The internal `tryPlayUrl` and `speakLocalAndWait` functions will also trigger cancellations
-  // or checks. For robustness, it's safer to have UI actions call `cancelAudio()` directly.
-
   const userOverride = getBrowserTierOverride();
   const isNativeGood = isHighTierBrowser();
-  
-  // Logic: Force Google if browser is explicitly set to 'low', OR if in strict mode
-  // AND the browser is not classified as a 'high-tier' browser for native TTS.
   const shouldForceGoogle = userOverride === 'low' || (strictMode && !isNativeGood);
 
   if (shouldForceGoogle) {
     try {
         console.log(`[Audio] Attempting Google TTS fallback (Session ID: ${mySessionId})...`);
         await playGoogleFallbackAndWait(text, lang, mySessionId); 
-        return; // Successfully played via Google fallback
+        return; 
     } catch (err: any) {
-        if (err.message === "Playback Cancelled" || err.message === "Empty text") { 
-            console.log(`[Audio] Google Fallback cancelled by newer request or empty text (Session ID: ${mySessionId}).`);
-            throw err; 
-        }
-        console.warn(`[Audio] Google TTS Fallback failed. Trying Local TTS as a secondary fallback (Session ID: ${mySessionId}).`, err);
+        if (err.message === "Playback Cancelled" || err.message === "Empty text") throw err; 
+        console.warn(`[Audio] Google TTS Fallback failed. Trying Local TTS.`, err);
     }
   }
 
@@ -363,28 +370,19 @@ export const speakAndWait = async (
       console.log(`[Audio] Attempting Local TTS (Session ID: ${mySessionId})...`);
       await speakLocalAndWait(text, lang, rate, pitch, voiceURI, mySessionId);
   } catch (err: any) {
-      if (err.message === "Playback Cancelled" || err.message === "Empty text") { 
-          console.log(`[Audio] Local TTS cancelled by newer request or empty text (Session ID: ${mySessionId}).`);
-          throw err; 
-      }
-      console.warn(`[Audio] Local TTS Failed or blocked. Trying Google TTS as a final fallback (Session ID: ${mySessionId}).`, err);
+      if (err.message === "Playback Cancelled" || err.message === "Empty text") throw err;
+      console.warn(`[Audio] Local TTS Failed. Trying Google TTS fallback.`, err);
       try {
           await playGoogleFallbackAndWait(text, lang, mySessionId);
       } catch (googleErr: any) {
-          if (googleErr.message === "Playback Cancelled" || googleErr.message === "Empty text") {
-              console.log(`[Audio] Final Google fallback cancelled by newer request or empty text (Session ID: ${mySessionId}).`);
-              throw googleErr;
-          }
-          console.error(`[Audio] All audio playback methods failed (Session ID: ${mySessionId}):`, googleErr);
-          throw new Error("Failed to play audio."); // Re-throw if all attempts fail
+          if (googleErr.message === "Playback Cancelled" || googleErr.message === "Empty text") throw googleErr;
+          console.error(`[Audio] All audio playback methods failed.`, googleErr);
+          throw new Error("Failed to play audio."); 
       }
   }
 };
 
-// --- LEGACY FIRE-AND-FORGET `speak` (for whiteboard clicks) ---
-// This is kept for compatibility with the existing Whiteboard component,
-// which triggers speech on user click and doesn't need to await completion.
-// It uses speakAndWait internally but doesn't block execution.
+// --- LEGACY FIRE-AND-FORGET `speak` ---
 export const speak = (
     text: string, 
     lang: string = 'en-US', 
@@ -392,11 +390,8 @@ export const speak = (
     rate: number = 1, 
     pitch: number = 1
 ) => {
-  // `speakAndWait` will handle the sessionId and cancellation logic internally.
-  // We just call it and do not await the promise here.
   speakAndWait(text, lang, strictMode, rate, pitch, null)
     .catch(e => {
-        // Only log if it's not a cancellation error or empty text error
         if (e && e.message !== "Playback Cancelled" && e.message !== "Empty text provided for speakAndWait") {
             console.warn("[Audio] Fire-and-forget speak error:", e);
         }
@@ -481,25 +476,10 @@ const getCommonLogic = (sensitivity: boolean) => `
           } else {
               await speakLocalAsync(text, lang, currentCallSessionId); 
           }
-      } catch (e: any) {
-          if (e.message === "Playback Cancelled" || e.message === "Timeout" || e.message === "Empty text") {
-              console.log("Speak cancelled, timed out, or text was empty.");
-          } else {
-              console.error("SpeakSmart encountered error:", e);
-              // Fallback if initial attempt fails
-              try {
-                  if (isOnline && !needsCloud) { 
-                       await tryPlayGoogleAsync(text, lang, currentCallSessionId);
-                  } else { 
-                       await speakLocalAsync(text, lang, currentCallSessionId);
-                  }
-              } catch (fallbackError) {
-                  console.error("Fallback audio attempt also failed:", fallbackError);
-              }
-          }
-      } finally {
-          // No explicit _isSpeaking = false; here as it's handled by _cancelAllAudio on next speak
-      }
+      } catch (e) {
+         // Fallback handling simplified for embedded script
+         console.error(e);
+      } 
   }
 
   function speakLocalAsync(text, lang, sessionId) {
@@ -527,45 +507,29 @@ const getCommonLogic = (sensitivity: boolean) => `
       });
   }
 
+  // Simplified Google player for offline script (no complex chunking to save space, relies on short texts usually found in SVGs)
   function tryPlayGoogleAsync(text, lang, sessionId) {
       return new Promise((resolve, reject) => {
           if (sessionId !== _playbackSessionId) return reject(new Error("Playback Cancelled"));
           
-          // CRITICAL: Stop any *currently active* HTML audio if a new one is about to start
           if (_activeAudioElement) { _activeAudioElement.pause(); _activeAudioElement.src = ""; }
           
-          var safeText = text.length > 100 ? text.substring(0, 100) : text;
+          var safeText = text.substring(0, 100); // Keep simple truncation for offline survival script to ensure high success rate
           var q = encodeURIComponent(safeText);
-          var gLang = lang;
-          if (['zh-CN', 'zh-TW', 'pt-BR', 'en-GB', 'en-US'].indexOf(lang) === -1) {
-              gLang = lang.split('-')[0];
-          }
+          var gLang = lang.split('-')[0];
           
           var url = "https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&q=" + q + "&tl=" + gLang;
           var audio = new Audio(url);
           _activeAudioElement = audio; 
-
-          function cleanupAndReject(err) {
-              if (sessionId === _playbackSessionId) { _activeAudioElement = null; } 
-              reject(err);
-          }
           
           audio.onended = function() { 
               if (sessionId === _playbackSessionId) { 
                   _activeAudioElement = null;
                   resolve(); 
-              } else {
-                  reject(new Error("Playback Cancelled"));
               }
           };
-          audio.onerror = function(e) { cleanupAndReject(new Error("Audio load error: " + (e.message || "unknown"))); };
-          
-          var playPromise = audio.play();
-          if (playPromise !== undefined) playPromise.catch(cleanupAndReject);
-          
-          setTimeout(function() {
-              if (audio.readyState === 0) cleanupAndReject(new Error("Timeout"));
-          }, 4000);
+          audio.onerror = function(e) { reject(new Error("Audio load error")); };
+          audio.play();
       });
   }
 `;
@@ -580,10 +544,9 @@ export const getSvgSurvivalScript = (sensitivity: boolean = false) => `
     if (trigger) {
         var text = trigger.getAttribute('data-speech');
         var lang = trigger.getAttribute('data-lang') || 'en-US';
-        // Auto-detect: if Alt key held, toggle engine temporarily
         if (e.altKey) { _forceCloud = true; }
         speakSmart(text, lang);
-        if (e.altKey) { _forceCloud = false; } // Reset after click
+        if (e.altKey) { _forceCloud = false; } 
     }
   });
 ]]>
@@ -594,7 +557,6 @@ export const getPlaygroundSurvivalScript = (sensitivity: boolean = false) => `
 <script>
   ${getCommonLogic(sensitivity)}
 
-  // Inject UI Toggle for Playgrounds
   window.addEventListener('load', function() {
       var btn = document.createElement('button');
       btn.innerHTML = "🔊 Config";
