@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import Button from '../Button';
 import { PlayerSettings, SavedPreset } from '../../types';
-import { STORAGE_KEYS, DEFAULT_PLAYER_SETTINGS } from '../../constants';
+import { STORAGE_KEYS } from '../../constants';
 import { Save, Play, RefreshCw, X, Volume2, Camera, Clock } from 'lucide-react';
 
 interface PresentationSetupModalProps {
