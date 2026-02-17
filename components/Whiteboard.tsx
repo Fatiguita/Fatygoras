@@ -45,6 +45,9 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
   
   const [isSpeaking, setIsSpeaking] = useState(false);
 
+  // Audio Cooldown
+  const lastAudioTimeRef = useRef<number>(0);
+
   // Panning/Zooming State
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -103,6 +106,14 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
 
       if (audioGroup) {
           e.stopPropagation(); 
+          
+          // Cooldown check: prevent double-clicks or rapid triggering
+          const now = Date.now();
+          if (now - lastAudioTimeRef.current < 1000) {
+              return; 
+          }
+          lastAudioTimeRef.current = now;
+
           const textToSpeak = audioGroup.getAttribute('data-speech');
           const langToSpeak = audioGroup.getAttribute('data-lang') || 'en-US';
 
