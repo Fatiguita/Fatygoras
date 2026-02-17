@@ -1,4 +1,4 @@
-import { AppTheme, GeminiModel } from './types';
+import { AppTheme, GeminiModel, PlayerSettings } from './types';
 
 export const DEFAULT_THEME = AppTheme.DARK;
 export const DEFAULT_MODEL = GeminiModel.GEMINI_3_PRO;
@@ -23,7 +23,7 @@ export const THEME_OPTIONS = [
   { label: 'Neon (Cyber)', value: AppTheme.NEON },
   { label: 'Sakura (Pastel)', value: AppTheme.SAKURA },
   { label: 'Windows XP', value: AppTheme.WINDOWS_XP },
-  { label: 'Naruto — Fire Spirit', value: AppTheme.NARUTO_FIRE },
+  { label: 'Naruto - Fire Spirit', value: AppTheme.NARUTO_FIRE },
   { label: 'L (Death Note)', value: AppTheme.L_DEATHNOTE },
   { label: 'Retro Arcade', value: AppTheme.RETRO_ARCADE },
   { label: 'Solarized', value: AppTheme.SOLARIZED },
@@ -38,6 +38,22 @@ export const STORAGE_KEYS = {
   SYLLABUS_GALLERY: 'ai_teacher_syllabus_gallery',
   TEST_RESULTS: 'ai_teacher_test_results',
   AUTO_SAVE_CONFIG: 'ai_teacher_auto_save_config',
+  PRESENTATION_PRESETS: 'fatygoras_presentation_presets',
+};
+
+export const DEFAULT_PLAYER_SETTINGS: PlayerSettings = {
+    voiceURI: null,
+    rate: 0.5,
+    pitch: 1,
+    themeColor: '#4f46e5',
+    highlightColor: '#f59e0b',
+    autoPlay: true,
+    pacing: 500,
+    staticSlideDuration: 10000,
+    minSlideDuration: 50000,
+    autoPan: true,
+    maxAutoZoom: 2.5,
+    customPacingEnabled: false
 };
 
 export const LOADING_TIPS = [
