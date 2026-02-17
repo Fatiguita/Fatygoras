@@ -162,6 +162,14 @@ export interface PlayerSettings {
   minSlideDuration: number;    // Minimum duration for ANY slide
   autoPan: boolean; // New: Auto-pan to active element
   maxAutoZoom: number; // New: Max zoom level for auto-pan
+  customPacingEnabled?: boolean; // New: Toggle for custom highlight pause
+}
+
+export interface SavedPreset {
+  name: string;
+  settings: PlayerSettings;
 }
 
 export type PlayState = 'idle' | 'playing' | 'paused';
+
+export type ToolMode = 'cursor' | 'hand' | 'pen' | 'text' | 'laser' | 'spotlight';
