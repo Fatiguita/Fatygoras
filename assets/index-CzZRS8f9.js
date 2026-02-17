@@ -553,7 +553,7 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    **CRITICAL RULE: AVOID RANDOMNESS**
    - **DO NOT** use image search for abstract or vague concepts (e.g., "efficiency", "logic", "history", "thought"). This results in random, confusing stock photos that ruin the learning experience.
    - **DO** use images for **CONCRETE, UNAMBIGUOUS NOUNS** (e.g., "microscope", "lion", "pyramid", "circuit board").
-   - If a concept is abstract, **DRAW IT YOURSELF** using schematic SVG shapes or less advised but still valid use Placehold.co text blocks if suitable.
+   - If a concept is abstract, **DRAW IT YOURSELF** using schematic SVG shapes or less advised but still valid use Placehold.co text blocks if suitable. (Avoid using placeholders to skip topic data  or explanation.)
 
    Use the standard SVG tag: <image href="URL" x="..." y="..." width="..." height="..." preserveAspectRatio="xMidYMid slice" />
    
@@ -568,6 +568,7 @@ the whiteboard should contain, concept, visuals, step by step solution or exampl
    B. **For Schematic Blocks (Systems, Flowcharts, emojis etc):**
       Use Placehold.co to create neat labeled blocks instantly.
       Pattern: https://placehold.co/300x200/e2e8f0/1e293b?text={Label}
+      Avoid using placeholders to skip topic data  or explanation.
       Max. is none. use as required.
       
    C. **For Specific Animations:**
