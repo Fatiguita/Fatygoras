@@ -43,8 +43,8 @@ export const SlideGrid: React.FC<SlideGridProps> = ({ slides, onSelect, onDelete
     };
 
     return (
-        <div className="p-6 bg-slate-100 dark:bg-slate-900 min-h-full overflow-y-auto">
-            <div className="max-w-7xl mx-auto">
+        <div className="p-6 bg-slate-100 dark:bg-slate-900 h-full overflow-y-auto">
+            <div className="max-w-7xl mx-auto pb-20">
                 <div className="mb-6 flex justify-between items-center">
                     <div>
                         <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Presentation Deck</h3>
