@@ -109,7 +109,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({
           
           // Cooldown check: prevent double-clicks or rapid triggering
           const now = Date.now();
-          if (now - lastAudioTimeRef.current < 1000) {
+          if (now - lastAudioTimeRef.current < 3000) {
               return; 
           }
           lastAudioTimeRef.current = now;
