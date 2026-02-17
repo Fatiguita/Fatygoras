@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { LayoutGrid, Settings } from 'lucide-react';
+import { LayoutGrid, Settings as SettingsIcon } from 'lucide-react';
 import { SlideData, PlayerSettings, PlayState, ToolMode } from '../../types';
 import { usePresentationTTS } from '../../hooks/usePresentationTTS';
 import { cancelAudio } from '../../services/audioService';
@@ -203,7 +203,7 @@ export const PresentationSession: React.FC<PresentationSessionProps> = ({
                         className={`p-2 rounded-full transition-colors ${showSettings ? 'bg-indigo-600 text-white' : 'bg-white/10 hover:bg-white/20 text-white'}`}
                         aria-label="Open Settings"
                     >
-                        <Settings size={18} />
+                        <SettingsIcon size={18} />
                     </button>
                 </div>
             </div>
