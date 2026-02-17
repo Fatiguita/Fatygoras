@@ -47,6 +47,11 @@ export const PresentationSession: React.FC<PresentationSessionProps> = ({
 
     // --- LOGIC ---
 
+    // CRITICAL FIX: Sync highlight color setting to CSS variable for index.css styles
+    useEffect(() => {
+        document.documentElement.style.setProperty('--highlight-color', settings.highlightColor);
+    }, [settings.highlightColor]);
+
     const saveCurrentAnnotation = useCallback(() => {
         if (viewportRef.current && currentIndex >= 0 && currentIndex < slides.length) {
             const data = viewportRef.current.getAnnotationData();
