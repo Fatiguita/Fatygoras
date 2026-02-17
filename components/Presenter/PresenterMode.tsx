@@ -15,7 +15,7 @@ import { cancelAudio } from '../../services/audioService';
 
 const DEFAULT_SETTINGS: PlayerSettings = {
     voiceURI: null,
-    rate: 0.5,
+    rate: 1,
     pitch: 1,
     themeColor: '#4f46e5',
     highlightColor: '#f59e0b',
@@ -23,7 +23,8 @@ const DEFAULT_SETTINGS: PlayerSettings = {
     pacing: 500,
     staticSlideDuration: 10000,
     minSlideDuration: 50000,
-    autoPan: true
+    autoPan: true,
+    maxAutoZoom: 2.5
 };
 
 type ToolMode = 'cursor' | 'hand' | 'pen' | 'text' | 'laser' | 'spotlight';
@@ -64,8 +65,15 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     // Transition State
     const [isTransitioning, setIsTransitioning] = useState(false);
 
+    // Refs for Auto-Pan Logic
+    const lastActiveId = useRef<string | null>(null);
+    const zoomRef = useRef(zoom);
+    
+    // Sync ref with state for async access
+    useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
     // Constants
-    const MIN_ZOOM = 0.6; // Increased to prevent black screen feeling
+    const MIN_ZOOM = 0.6; 
     const MAX_ZOOM = 5;
 
     // --- LOGIC ---
@@ -121,45 +129,84 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
         settings
     );
 
-    // --- AUTO PAN LOGIC ---
+    // --- CINEMATIC AUTO PAN LOGIC ---
     useEffect(() => {
-        if (!settings.autoPan || !activeId || viewMode !== 'present' || isTransitioning || isDragging) return;
+        if (!settings.autoPan || viewMode !== 'present' || isTransitioning || isDragging) return;
 
-        const el = document.getElementById(activeId);
-        const container = document.getElementById('slide-container');
-
-        if (el && container) {
-            const elRect = el.getBoundingClientRect();
-            const containerRect = container.getBoundingClientRect();
-
-            // Only auto-pan if element is off-center or we need to focus
-            const elCenterX = elRect.left + elRect.width / 2;
-            const elCenterY = elRect.top + elRect.height / 2;
-            const containerCenterX = containerRect.left + containerRect.width / 2;
-            const containerCenterY = containerRect.top + containerRect.height / 2;
-
-            const diffX = containerCenterX - elCenterX;
-            const diffY = containerCenterY - elCenterY;
-            
-            // Apply smoothing by adding to current pan
-            setPan(prev => ({ x: prev.x + diffX, y: prev.y + diffY }));
-
-            // Intelligent Zoom - ADJUSTED for less aggressive zoom
-            // Aim for element to take up 35% width instead of 55%
-            const targetWidth = containerRect.width * 0.35; 
-            if (elRect.width > 0) {
-                 const currentElementScale = elRect.width / zoom; // unscaled width
-                 const desiredZoom = targetWidth / currentElementScale;
-                 // Cap max auto-zoom to 1.8x to prevent excessive close-ups
-                 const clampedZoom = Math.max(1, Math.min(1.8, desiredZoom)); 
-                 
-                 // Only zoom if significant difference to avoid jitter
-                 if (Math.abs(clampedZoom - zoom) > 0.1) {
-                     setZoom(clampedZoom);
-                 }
+        // Reset if no active ID or static slide
+        if (!activeId || activeId === 'root-svg') {
+            if (zoom !== 1 || pan.x !== 0 || pan.y !== 0) {
+                resetTransform();
             }
+            lastActiveId.current = activeId;
+            return;
         }
-    }, [activeId, settings.autoPan, viewMode, isTransitioning, zoom, isDragging]);
+
+        // Prevent re-triggering for the same ID (e.g., when opening settings)
+        if (activeId === lastActiveId.current) return;
+        lastActiveId.current = activeId;
+
+        // 1. Cinematic Step 1: Pan Out to Full View
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+
+        // 2. Cinematic Step 2: Pan In to Target (Delayed)
+        // Wait 1000ms (1s) which matches our transition duration, creating a smooth "Out... then In" arc.
+        const timeoutId = setTimeout(() => {
+            const el = document.getElementById(activeId);
+            const container = document.getElementById('slide-container');
+
+            if (el && container) {
+                const elRect = el.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+
+                // Safety check for zero dimensions
+                if (elRect.width === 0 || elRect.height === 0) return;
+
+                // --- Calculate Zoom ---
+                // "Fit-to-Box" Strategy: Define safe area (50% of screen dimensions)
+                const paddingFactor = 0.5;
+                const targetW = containerRect.width * paddingFactor;
+                const targetH = containerRect.height * paddingFactor;
+
+                // Calculate ratios relative to current displayed size (zoom 1.0)
+                const scaleX = targetW / elRect.width;
+                const scaleY = targetH / elRect.height;
+
+                // Pick the smaller scale factor to ensure it fits completely (contain)
+                const desiredScaleFactor = Math.min(scaleX, scaleY);
+                const clampedZoom = Math.max(1, Math.min(settings.maxAutoZoom, desiredScaleFactor));
+
+                // --- Calculate Pan ---
+                const containerCenterX = containerRect.left + containerRect.width / 2;
+                const containerCenterY = containerRect.top + containerRect.height / 2;
+                
+                // Vertical Centering: Center the element vertically
+                const elCenterY = elRect.top + elRect.height / 2;
+                // Important: Scale the offset by the zoom factor to maintain centering
+                const diffY = (containerCenterY - elCenterY) * clampedZoom;
+
+                // Horizontal Left Align: Align element left edge to dynamic padding from container left
+                // Range: 10px (at 1x) to 40px (at 4x or higher)
+                const padding = Math.min(40, 10 * clampedZoom);
+                const targetX = containerRect.left + padding;
+                
+                // Calculate offsets from center (0,0 in transform space)
+                const targetOffsetX = targetX - containerCenterX;
+                const currentOffsetX = elRect.left - containerCenterX;
+                
+                // Apply formula: Target = Center + (CurrentOffset * Zoom) + Pan
+                // Pan = TargetOffset - (CurrentOffset * Zoom)
+                const diffX = targetOffsetX - (currentOffsetX * clampedZoom);
+
+                setPan({ x: diffX, y: diffY });
+                setZoom(clampedZoom);
+            }
+        }, 1000); 
+
+        return () => clearTimeout(timeoutId);
+
+    }, [activeId, settings.autoPan, viewMode, isTransitioning, isDragging, settings.maxAutoZoom]);
 
     // --- INITIALIZATION & EFFECTS ---
     useEffect(() => {
@@ -292,13 +339,20 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     };
 
     const adjustZoom = (delta: number) => { 
+        if (settings.autoPan) setSettings(prev => ({ ...prev, autoPan: false })); // Fix: Disable auto-pan
         setZoom(z => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta))); 
     };
 
     const handleWheel = (e: React.WheelEvent) => {
-        if (Math.abs(e.deltaY) < 5) return; // noise filter
+        if (Math.abs(e.deltaY) < 5) return;
+        
+        // Fix 2: Disable Auto-Pan on manual wheel
+        if (settings.autoPan) {
+            setSettings(prev => ({ ...prev, autoPan: false }));
+        }
+
         const sensitivity = 0.001;
-        const delta = -e.deltaY * sensitivity * (zoom * 1.5); // Scaled by current zoom for natural feel
+        const delta = -e.deltaY * sensitivity * (zoom * 1.5);
         setZoom(z => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta)));
     };
 
@@ -377,6 +431,12 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
 
     const handleMouseDown = (e: React.MouseEvent) => {
         showControls();
+        
+        // Fix 2: Disable Auto-Pan on manual interaction
+        if (settings.autoPan && activeTool === 'hand') {
+            setSettings(prev => ({ ...prev, autoPan: false }));
+        }
+
         if (activeTool === 'hand') {
             setIsDragging(true);
             dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
@@ -399,6 +459,12 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
     // --- TOUCH HANDLERS ---
     const handleTouchStart = (e: React.TouchEvent) => {
         showControls();
+        
+        // Fix 2: Disable Auto-Pan on touch
+        if (settings.autoPan) {
+            setSettings(prev => ({ ...prev, autoPan: false }));
+        }
+
         if (e.touches.length === 2) {
             const dist = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
@@ -481,24 +547,27 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
 
             {viewMode === 'grid' ? (
                 <div className="flex flex-col h-full">
-                    <div className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 shrink-0">
-                        <h2 className="font-bold text-lg text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <LayoutGrid size={20} className="text-indigo-500" /> Presentation Index
+                    <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap sm:flex-nowrap items-center justify-between px-4 py-2 gap-2 shrink-0">
+                        <h2 className="font-bold text-lg text-slate-800 dark:text-slate-100 flex items-center gap-2 shrink-0">
+                            <LayoutGrid size={20} className="text-indigo-500" /> 
+                            <span className="hidden sm:inline">Presentation Index</span>
                         </h2>
-                        <div className="flex items-center gap-3">
-                            <button onClick={handleExportVideo} className="p-2 text-slate-500 hover:text-indigo-500" title="Record Video"><FileVideo size={20}/></button>
-                            <button onClick={handleExportPDF} className="p-2 text-slate-500 hover:text-indigo-500" title="Print to PDF"><FileText size={20}/></button>
+                        <div className="flex items-center gap-2 ml-auto shrink-0 overflow-x-auto no-scrollbar">
+                            <button onClick={handleExportVideo} className="hidden md:block p-2 text-slate-500 hover:text-indigo-500" title="Record Video"><FileVideo size={20}/></button>
+                            <button onClick={handleExportPDF} className="hidden md:block p-2 text-slate-500 hover:text-indigo-500" title="Print to PDF"><FileText size={20}/></button>
                             <select value={playbackOrder} onChange={(e) => setPlaybackOrder(e.target.value as 'first' | 'last')}
-                                className="bg-white/5 text-sm text-white p-1 rounded border border-white/10">
+                                className="bg-slate-100 dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 p-2 rounded border border-slate-200 dark:border-slate-700 outline-none">
                                 <option value="last">Last → First</option>
                                 <option value="first">First → Last</option>
                             </select>
                             <button
                                 onClick={() => enterPresentation(currentIndex)}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all"
+                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all whitespace-nowrap shadow-sm"
                                 aria-label="Start Presentation"
                             >
-                                <Play size={16} fill="currentColor" /> Start Show
+                                <Play size={16} fill="currentColor" /> 
+                                <span className="hidden xs:inline">Start Show</span>
+                                <span className="xs:hidden">Play</span>
                             </button>
                         </div>
                     </div>
@@ -549,7 +618,7 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                         onTouchStart={handleTouchStart}
                         onTouchMove={handleTouchMove}
                         onTouchEnd={handleTouchEnd}
-                        onWheel={handleWheel} // Added Scroll-to-Zoom
+                        onWheel={handleWheel}
                     >
                         {/* 
                            Separated Containers for Stability:
@@ -562,7 +631,8 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                                 style={{
                                     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                                     // CRITICAL FIX: Only apply transition if NOT dragging. This prevents the "floaty/crazy" lag.
-                                    transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
+                                    // Use 'ease-in-out' with 1s duration to simulate "panning out then panning in" (slow-fast-slow)
+                                    transition: isDragging ? 'none' : 'transform 1s cubic-bezier(0.4, 0, 0.2, 1)',
                                     willChange: 'transform'
                                 }}
                             >
@@ -719,6 +789,24 @@ export const PresenterMode: React.FC<PresenterModeProps> = ({ initialWhiteboards
                                         checked={settings.autoPan} 
                                         onChange={e => setSettings({...settings, autoPan: e.target.checked})} 
                                         className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
+                                    />
+                                </div>
+
+                                {/* NEW: Max Auto-Zoom Slider */}
+                                <div>
+                                    <label htmlFor="max-zoom" className="flex justify-between text-xs text-white/50 mb-1">
+                                        <span>Max Zoom Focus</span>
+                                        <span>{settings.maxAutoZoom}x</span>
+                                    </label>
+                                    <input 
+                                        id="max-zoom" 
+                                        type="range" 
+                                        min="1.0" 
+                                        max="5.0" 
+                                        step="0.1" 
+                                        value={settings.maxAutoZoom} 
+                                        onChange={(e) => setSettings({ ...settings, maxAutoZoom: parseFloat(e.target.value) })} 
+                                        className="w-full accent-indigo-500 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer" 
                                     />
                                 </div>
 
