@@ -101,9 +101,18 @@ export const PresentationSession: React.FC<PresentationSessionProps> = ({
         }
     }, [currentIndex, slides.length, changeSlide, playbackOrder]);
 
+    // CRITICAL FIX: Memoize segments array. 
+    // If 'slides' or 'currentIndex' don't change, we must pass the EXACT SAME array reference
+    // to the TTS hook. Otherwise, passing a new [] or a new mapped array on every render
+    // (caused by setSettings or setControlsVisible during drag) will trigger the TTS cleanup
+    // and restart the audio.
+    const currentSegments = useMemo(() => {
+        return slides[currentIndex]?.narrativeSegments || [];
+    }, [slides, currentIndex]);
+
     // TTS Hook
     const { voices, activeId } = usePresentationTTS(
-        slides[currentIndex]?.narrativeSegments || [],
+        currentSegments,
         playState === 'playing',
         handleNext,
         settings
