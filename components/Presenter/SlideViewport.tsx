@@ -215,6 +215,8 @@ export const SlideViewport = forwardRef<SlideViewportRef, SlideViewportProps>(({
                 });
             }
             if (activeTool === 'hand' && isDragging) {
+                // With touch-action: none, preventDefault is often not needed for scrolling,
+                // but we keep it to be safe for other browser behaviors.
                 if(e.cancelable) e.preventDefault(); 
                 setPan({ 
                     x: e.touches[0].clientX - dragStart.current.x, 
@@ -243,6 +245,9 @@ export const SlideViewport = forwardRef<SlideViewportRef, SlideViewportProps>(({
         <div
             id="slide-container"
             className={`w-full h-full flex items-center justify-center overflow-hidden relative p-4 ${activeTool === 'hand' ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
+            // CRITICAL FIX: touch-action: none prevents the browser from handling scrolling/zooming gestures.
+            // This eliminates "passive event listener" warnings and allows our JS to handle panning smoothly.
+            style={{ touchAction: 'none' }} 
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
