@@ -36,9 +36,14 @@ export const usePresentationTTS = (
     const [activeId, setActiveId] = useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0); 
     
+    // Destructure audio/timing settings to use as stable dependencies.
+    // This prevents the effect from re-running (and restarting audio) when unrelated settings 
+    // (like autoPan, highlightColor) change in the parent component.
+    const { rate, pitch, voiceURI, pacing, minSlideDuration, staticSlideDuration } = settings;
+    
     // Timer ref to manage timeouts
     const timerRef = useRef<number | null>(null);
-    // Track when the current slide started to enforce 'minSlideDuration'
+    // Track when the slide started to enforce 'minSlideDuration'
     const slideStartTimeRef = useRef<number>(0); 
 
     // Load Voices
@@ -71,7 +76,7 @@ export const usePresentationTTS = (
         if (currentIndex >= segments.length) {
             // Check if the slide passed too quickly (enforce minSlideDuration)
             const elapsed = Date.now() - slideStartTimeRef.current;
-            const remaining = settings.minSlideDuration - elapsed;
+            const remaining = minSlideDuration - elapsed;
 
             if (remaining > 0) {
                 // Wait the remaining time before moving to the next slide
@@ -108,8 +113,8 @@ export const usePresentationTTS = (
                 segment.text, 
                 segment.lang || 'en-US', 
                 true, // Strict mode
-                settings.rate, 
-                settings.pitch
+                rate, 
+                pitch
             );
         } else {
             // Ensure silence for static slides
@@ -121,9 +126,9 @@ export const usePresentationTTS = (
         // because we handle the *Slide-Level* minimum at the end of the loop (step 2 above).
         const segmentDuration = estimateDuration(
             segment.text, 
-            settings.rate, 
+            rate, 
             isStaticSegment, 
-            settings.staticSlideDuration,
+            staticSlideDuration,
             1000 // Minimal per-segment floor to prevent glitches
         );
         
@@ -131,7 +136,7 @@ export const usePresentationTTS = (
         // Static slides wait their full duration. Narrative segments add user pacing.
         const totalWait = isStaticSegment 
             ? segmentDuration 
-            : segmentDuration + (settings.pacing || 0);
+            : segmentDuration + (pacing || 0);
 
         // 8. Set Timer for Next Segment
         if (timerRef.current) clearTimeout(timerRef.current);
@@ -147,7 +152,7 @@ export const usePresentationTTS = (
             cancelAudio();
         };
 
-    }, [playing, currentIndex, segments, settings, onEnd]);
+    }, [playing, currentIndex, segments, rate, pitch, voiceURI, pacing, minSlideDuration, staticSlideDuration, onEnd]);
 
     return { voices, activeId };
 };
