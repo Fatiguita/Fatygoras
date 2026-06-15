@@ -11,7 +11,7 @@
 
 **Fatygoras** is an advanced, interactive AI teaching environment designed to visualize complex concepts. Unlike standard chatbots, Fatygoras acts as a visual tutor, generating dynamic **SVG Whiteboards**, creating **Interactive Coding Playgrounds**, and structuring full **Syllabuses** on the fly.
 
-Built with the latest **Google Gemini Models** (3.0 Pro/Flash & 2.5), it offers a privacy-focused, "Bring Your Own Key" (BYOK) architecture where sessions live in your browser or your local filesystem.
+Built with the latest **Google Gemini Models** (3.1 Pro/Flash, 3.5 Flash & 2.5), it offers a privacy-focused, "Bring Your Own Key" (BYOK) architecture where sessions live in your browser or your local filesystem.
 
 ---
 
@@ -98,8 +98,10 @@ Built with the latest **Google Gemini Models** (3.0 Pro/Flash & 2.5), it offers 
 
 Fatygoras supports the following models (selectable via dropdown):
 
-*   **Gemini 3.0 Pro Preview** (Recommended for complex reasoning)
+*   **Gemini 3.1 Pro Preview** (Recommended for complex reasoning)
 *   **Gemini 3.0 Flash Preview** (Fastest)
+*   **Gemini 3.1 Flash Lite** (Balanced speed + quality)
+*   **Gemini 3.5 Flash** (Latest fast model)
 *   **Gemini 2.5 Flash / Pro** (Stable alternatives)
 
 *Note: Image generation is handled via SVG code generation, not pixel-based image models, ensuring crisp scalability and editability.*

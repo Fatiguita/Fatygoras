@@ -6,8 +6,10 @@ export const DEFAULT_MODEL = GeminiModel.GEMINI_3_PRO;
 export const AUTO_SAVE_TAG = 'FATY_V4_AUTO';
 
 export const MODEL_OPTIONS = [
-  { label: 'Gemini 3.0 Pro Preview', value: GeminiModel.GEMINI_3_PRO },
+  { label: 'Gemini 3.1 Pro Preview', value: GeminiModel.GEMINI_3_PRO },
   { label: 'Gemini 3.0 Flash Preview', value: GeminiModel.GEMINI_3_FLASH },
+  { label: 'Gemini 3.1 Flash Lite', value: GeminiModel.GEMINI_3_1_FLASH_LITE },
+  { label: 'Gemini 3.5 Flash', value: GeminiModel.GEMINI_3_5_FLASH },
   { label: 'Gemini 2.5 Flash', value: GeminiModel.GEMINI_2_5_FLASH },
   { label: 'Gemini 2.5 Pro', value: GeminiModel.GEMINI_2_5_PRO },
 ];
@@ -66,7 +68,7 @@ export const LOADING_TIPS = [
   { emoji: "🤐", text: "Export your entire session as a ZIP file from the Session Manager." },
   { emoji: "🎮", text: "Use the 'Practice' button to code what you just learned." },
   { emoji: "🎓", text: "The Syllabus Architect can plan a course from Intro to Master." },
-  { emoji: "🧠", text: "Gemini 3.0 Pro is best for complex logic and reasoning." },
+  { emoji: "🧠", text: "Gemini 3.1 Pro is best for complex logic and reasoning." },
   { emoji: "⚡", text: "Gemini Flash models are faster but less detailed." },
   { emoji: "🔄", text: "If a Playground bugs out, click the retry button in the header." },
   { emoji: "📦", text: "Auto-Save creates backups on your hard drive every few minutes." },
