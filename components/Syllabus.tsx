@@ -236,7 +236,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
         {groupedGallery.map(group => {
             const isExpanded = expandedGroups[group.name];
             return (
-                <div key={group.name} className="bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm transition-all duration-300">
+                <div key={group.name} className="bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-y-auto scroll-smooth shadow-sm transition-all duration-300">
                     <button 
                         onClick={() => toggleGroup(group.name)}
                         className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
