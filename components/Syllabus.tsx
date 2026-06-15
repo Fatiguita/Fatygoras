@@ -232,7 +232,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
           </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-20rem)] pb-6 scroll-smooth">
         {groupedGallery.map(group => {
             const isExpanded = expandedGroups[group.name];
             return (
@@ -260,7 +260,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
                     </button>
                     
                     {/* Collapsible Content */}
-                    <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                    <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[68vh] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                         <div className="p-4 pt-0 grid grid-cols-1 gap-4 border-t border-gray-100 dark:border-gray-800 mt-2">
                             {getSortedItems(group.items).map(item => (
                                 <div key={item.id} className="group/card relative bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 dark:border-gray-700 overflow-hidden mt-4">
