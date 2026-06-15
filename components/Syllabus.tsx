@@ -136,7 +136,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
         </p>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-12 animate-fade-in">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-y-auto scroll-smooth mb-12 animate-fade-in">
           {/* Mode Tabs */}
           <div className="flex border-b border-gray-200 dark:border-gray-700">
               <button 
