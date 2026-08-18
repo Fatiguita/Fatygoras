@@ -26,6 +26,12 @@ export const useAppState = () => {
     const [pendingResumeHandle, setPendingResumeHandle] = useState<any>(null);
     const autoSaveTimerRef = useRef<number | null>(null);
 
+    // --- DOCUMENT CONTEXT STATE ---
+    // Option: Store this locally. 
+    // Alternative: Kept inside component state in sync with IndexedDB storage handlers for reliable scaling.
+    const [activeDocText, setActiveDocText] = useState<string>('');
+    const [activeDocName, setActiveDocName] = useState<string>('');
+
     // --- UI STATE ---
     const [activeTab, setActiveTab] = useState<Tab>(Tab.CLASSROOM);
     const [isNavVisible, setIsNavVisible] = useState(true);
@@ -86,6 +92,8 @@ export const useAppState = () => {
         autoSaveName, setAutoSaveName, autoSaveInterval, setAutoSaveInterval,
         autoSaveHandle, setAutoSaveHandle, pendingResumeHandle, setPendingResumeHandle,
         autoSaveTimerRef,
+        // Document context
+        activeDocText, setActiveDocText, activeDocName, setActiveDocName,
         // UI
         activeTab, setActiveTab, isNavVisible, setIsNavVisible, isFullscreen, setIsFullscreen,
         // Content

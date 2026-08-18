@@ -19,7 +19,7 @@ import { Tab, getBackgroundStyle } from './appConstants';
 import { createGenerationHandlers } from './handlers/generationHandlers';
 import { createPlaygroundHandlers } from './handlers/playgroundHandlers';
 import { createCommonHandlers } from './handlers/commonHandlers';
-import { storeDirectoryHandle } from './services/autoSaveService';
+import { storeDirectoryHandle, getActiveDocument } from './services/autoSaveService';
 
 const App: React.FC = () => {
     // Initialize all state
@@ -32,6 +32,18 @@ const App: React.FC = () => {
 
     // Logger hook
     const addLog = useLogger(appState.setApiLogs);
+
+    // Hydrate active document context from IndexedDB on mount
+    React.useEffect(() => {
+        const hydrateDocumentContext = async () => {
+            const doc = await getActiveDocument();
+            if (doc) {
+                appState.setActiveDocText(doc.text);
+                appState.setActiveDocName(doc.name);
+            }
+        };
+        hydrateDocumentContext();
+    }, []);
 
     // Auto-save hook
     useAutoSave(
@@ -105,7 +117,9 @@ const App: React.FC = () => {
         appState.setIsChatOpen,
         appState.setChatHistory,
         appState.setIsRefining,
-        addLog
+        addLog,
+        appState.activeDocText,
+        appState.activeDocName
     );
 
     const playgroundHandlers = createPlaygroundHandlers(
@@ -235,6 +249,10 @@ const App: React.FC = () => {
                                 onImportLevel={(topics, mainTopic) => generationHandlers.handleGenerate(topics.join(", "), mainTopic)}
                                 onDelete={(id) => appState.setSyllabusGallery(prev => prev.filter(s => s.id !== id))}
                                 onSelect={appState.setSyllabus}
+                                activeDocText={appState.activeDocText}
+                                setActiveDocText={appState.setActiveDocText}
+                                activeDocName={appState.activeDocName}
+                                setActiveDocName={appState.setActiveDocName}
                             />
                         )}
                         {appState.activeTab === Tab.LEVEL_TEST && <LevelTest onStartTest={playgroundHandlers.handleCreateLevelTest} isGenerating={appState.isGeneratingTest} results={appState.testResults} />}

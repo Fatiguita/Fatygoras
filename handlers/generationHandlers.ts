@@ -29,13 +29,19 @@ export const createGenerationHandlers = (
     setIsChatOpen: (open: boolean) => void,
     setChatHistory: (history: any[] | ((prev: any[]) => any[])) => void,
     setIsRefining: (refining: boolean) => void,
-    addLog: (entry: any) => void
+    addLog: (entry: any) => void,
+    // Dynamic Context Integration inputs
+    activeDocText: string,
+    activeDocName: string
 ) => {
     const handleGenerate = async (topicOverride?: string, mainTopicContext?: string) => {
-        const topicToUse = topicOverride || input;
+        // Option: Append document string as raw payload context.
+        // Alternative: Standard context label wrapper prepended directly before execution inputs.
+        const docContext = activeDocText ? `[REFERENCE FILE CONTEXT: ${activeDocName}]\n${activeDocText}\n\n` : '';
+        const topicToUse = docContext + (topicOverride || input);
         const effectiveMainTopic = mainTopicContext || (topicOverride ? undefined : input);
 
-        if (!topicToUse.trim() || !apiKey) {
+        if (!(topicOverride || input).trim() || !apiKey) {
             if (!apiKey) alert("Please enter a Gemini API Key.");
             return;
         }
@@ -45,13 +51,13 @@ export const createGenerationHandlers = (
 
         try {
             const analysis = await analyzeTopic(apiKey, topicToUse, model, addLog, effectiveMainTopic);
-            const topicsToCover = analysis.isAbstract ? analysis.topics : [topicToUse];
+            const topicsToCover = analysis.isAbstract ? analysis.topics : [topicOverride || input];
             const CHUNK_SIZE = 4;
             let previousContext = whiteboards.slice(0, 2).map(w => w.topic).join(", ");
 
             for (let i = 0; i < topicsToCover.length; i += CHUNK_SIZE) {
                 const chunk = topicsToCover.slice(i, i + CHUNK_SIZE);
-                const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, effectiveMainTopic || topicToUse, addLog);
+                const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, effectiveMainTopic || (topicOverride || input), addLog);
                 previousContext = batchResults.map(b => b.topic).join(", ");
 
                 const newWhiteboards: WhiteboardData[] = batchResults.map(item => ({
@@ -127,6 +133,9 @@ export const createGenerationHandlers = (
         let context = '';
         if (relatedSyllabi.length > 0) {
             context = `Existing courses:\n` + relatedSyllabi.map(s => `- ${s.level} (${s.topic}): ${s.concepts.join(', ')}`).join('\n');
+        }
+        if (activeDocText) {
+            context = `[SOURCE REFERENCE DOCUMENT: ${activeDocName}]\n${activeDocText}\n\n` + context;
         }
 
         try {

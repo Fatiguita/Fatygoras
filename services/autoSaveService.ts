@@ -58,6 +58,38 @@ export const clearStoredDirectoryHandle = async () => {
     }
 };
 
+// --- NEW: Plain Text Document Context Persist/Retrieve ---
+// Option: We could store this as a general IndexedDB object array.
+// Alternative Selected: Standard single 'active_document' key entry is used to maximize prompt speed and minimize retrieval latency.
+export const storeActiveDocument = async (name: string, text: string) => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).put({ name, text }, 'active_document');
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (e) {
+        console.error("Failed to store active document", e);
+    }
+};
+
+export const getActiveDocument = async () => {
+    try {
+        const db = await openDB();
+        return new Promise<{ name: string, text: string } | null>((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const req = tx.objectStore(STORE_NAME).get('active_document');
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+        });
+    } catch (e) {
+        console.error("Failed to retrieve active document from DB", e);
+        return null;
+    }
+};
+
 
 // --- Script Generation ---
 

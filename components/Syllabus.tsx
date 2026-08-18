@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Button from './Button';
 import Select from './Select';
 import { SyllabusData, CourseLevel } from '../types';
+import { storeActiveDocument } from '../services/autoSaveService';
 
 interface SyllabusProps {
   data: SyllabusData | null;
@@ -12,10 +13,15 @@ interface SyllabusProps {
   onImportLevel: (topics: string[], mainTopic: string) => void;
   onDelete: (id: string) => void;
   onSelect: (syllabus: SyllabusData) => void;
+  activeDocText: string;
+  setActiveDocText: (text: string) => void;
+  activeDocName: string;
+  setActiveDocName: (name: string) => void;
 }
 
 const Syllabus: React.FC<SyllabusProps> = ({ 
-    data, gallery, onGenerate, onGenerateProject, isLoading, onImportLevel, onDelete, onSelect 
+    data, gallery, onGenerate, onGenerateProject, isLoading, onImportLevel, onDelete, onSelect,
+    activeDocText, setActiveDocText, activeDocName, setActiveDocName
 }) => {
   const [topic, setTopic] = useState('');
   const [level, setLevel] = useState<CourseLevel>('Introduction');
@@ -35,7 +41,6 @@ const Syllabus: React.FC<SyllabusProps> = ({
         if (data.level.startsWith('Phase')) {
             setMode('project');
             setProjectGoal(data.topic.replace(/ - Part \d+$/, ''));
-            // Tech stack is not strictly stored in SyllabusData, but we can leave it empty or guess
         } else {
             setMode('academic');
             setTopic(data.topic);
@@ -68,7 +73,7 @@ const Syllabus: React.FC<SyllabusProps> = ({
         .sort((a, b) => b.latestTimestamp - a.latestTimestamp); // Newest groups first
   }, [gallery]);
 
-  // Auto-expand the first group if only one exists or if a new item was just added (simple heuristic)
+  // Auto-expand the first group if only one exists or if a new item was just added
   useEffect(() => {
       if (groupedGallery.length === 1 && !expandedGroups[groupedGallery[0].name]) {
           setExpandedGroups({ [groupedGallery[0].name]: true });
@@ -94,7 +99,6 @@ const Syllabus: React.FC<SyllabusProps> = ({
       return [...items].sort((a, b) => {
           const idxA = order.indexOf(a.level);
           const idxB = order.indexOf(b.level);
-          // If unknown level, fall back to timestamp
           if (idxA === -1 || idxB === -1) return (a.timestamp || 0) - (b.timestamp || 0);
           return idxA - idxB;
       });
@@ -112,13 +116,11 @@ const Syllabus: React.FC<SyllabusProps> = ({
     if (mode === 'academic') {
         if (!topic.trim()) return;
         onGenerate(topic, level, description);
-        // Auto expand this group after generation
         setExpandedGroups(prev => ({ ...prev, [topic]: true }));
     } else {
         if (!projectGoal.trim()) return;
         if (onGenerateProject) {
             onGenerateProject(projectGoal, techStack);
-            // Auto expand
             setExpandedGroups(prev => ({ ...prev, [projectGoal]: true }));
         }
     }
@@ -134,6 +136,61 @@ const Syllabus: React.FC<SyllabusProps> = ({
         <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
           Design your own learning path. Generate a structured syllabus or reverse-engineer a project into milestones.
         </p>
+      </div>
+
+      {/* Dynamic Reference Document Intake */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md border border-gray-200 dark:border-gray-700 mb-6">
+          <h3 className="text-sm font-bold text-gray-500 uppercase mb-3 flex items-center gap-2">
+              📂 Reference Source Document Context
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 text-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors relative cursor-pointer">
+                  <input 
+                      type="file" 
+                      accept=".txt,.md,.csv,.json"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                              const text = await file.text();
+                              setActiveDocName(file.name);
+                              setActiveDocText(text);
+                              await storeActiveDocument(file.name, text);
+                          }
+                      }}
+                  />
+                  <span className="text-2xl mb-1">📄</span>
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      {activeDocName ? `Loaded: ${activeDocName}` : 'Upload plain text file (.txt, .md)'}
+                  </span>
+              </div>
+              <div className="flex flex-col">
+                  <textarea
+                      placeholder="Paste reference study material, syllabus outlines, or specific learning guidelines directly here..."
+                      value={activeDocText}
+                      onChange={async (e) => {
+                          const text = e.target.value;
+                          const name = text ? 'Pasted Context' : '';
+                          setActiveDocName(name);
+                          setActiveDocText(text);
+                          await storeActiveDocument(name, text);
+                      }}
+                      className="w-full h-24 p-2 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-900 rounded-xl outline-none focus:ring-1 focus:ring-purple-500 resize-none text-gray-850 dark:text-gray-100"
+                  />
+                  {activeDocText && (
+                      <button 
+                          onClick={async () => {
+                              setActiveDocText('');
+                              setActiveDocName('');
+                              await storeActiveDocument('', '');
+                          }}
+                          className="text-[10px] text-red-500 text-right mt-1 hover:underline cursor-pointer"
+                      >
+                          Clear reference context
+                      </button>
+                  )}
+              </div>
+          </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-y-auto scroll-smooth mb-12 animate-fade-in">
