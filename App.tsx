@@ -237,6 +237,10 @@ const App: React.FC = () => {
                                 onGenerate={generationHandlers.handleGenerate}
                                 onLaunchPlayground={generationHandlers.handleLaunchPlayground}
                                 onWhiteboardRefine={generationHandlers.handleWhiteboardRefine}
+                                activeDocText={appState.activeDocText}
+                                setActiveDocText={appState.setActiveDocText}
+                                activeDocName={appState.activeDocName}
+                                setActiveDocName={appState.setActiveDocName}
                             />
                         )}
                         {appState.activeTab === Tab.SYLLABUS && (

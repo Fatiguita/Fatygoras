@@ -30,18 +30,21 @@ export const createGenerationHandlers = (
     setChatHistory: (history: any[] | ((prev: any[]) => any[])) => void,
     setIsRefining: (refining: boolean) => void,
     addLog: (entry: any) => void,
-    // Dynamic Context Integration inputs
     activeDocText: string,
     activeDocName: string
 ) => {
-    const handleGenerate = async (topicOverride?: string, mainTopicContext?: string) => {
-        // Option: Append document string as raw payload context.
-        // Alternative: Standard context label wrapper prepended directly before execution inputs.
-        const docContext = activeDocText ? `[REFERENCE FILE CONTEXT: ${activeDocName}]\n${activeDocText}\n\n` : '';
-        const topicToUse = docContext + (topicOverride || input);
-        const effectiveMainTopic = mainTopicContext || (topicOverride ? undefined : input);
+    const handleGenerate = async (topicOverride?: string | any, mainTopicContext?: string) => {
+        // --- CRITICAL DEFENSIVE CHECK ---
+        // Option: Directly parse optional arguments.
+        // Alternative Selected: Because React's standard onClick button handlers pass a synthetic MouseEvent 
+        // as the first parameter if not wrapped, we strictly verify that topicOverride is a string before proceeding.
+        const actualTopicOverride = typeof topicOverride === 'string' ? topicOverride : undefined;
 
-        if (!(topicOverride || input).trim() || !apiKey) {
+        const docContext = activeDocText ? `[REFERENCE FILE CONTEXT: ${activeDocName}]\n${activeDocText}\n\n` : '';
+        const topicToUse = docContext + (actualTopicOverride || input);
+        const effectiveMainTopic = mainTopicContext || (actualTopicOverride ? undefined : input);
+
+        if (!(actualTopicOverride || input).trim() || !apiKey) {
             if (!apiKey) alert("Please enter a Gemini API Key.");
             return;
         }
@@ -51,13 +54,13 @@ export const createGenerationHandlers = (
 
         try {
             const analysis = await analyzeTopic(apiKey, topicToUse, model, addLog, effectiveMainTopic);
-            const topicsToCover = analysis.isAbstract ? analysis.topics : [topicOverride || input];
+            const topicsToCover = analysis.isAbstract ? analysis.topics : [actualTopicOverride || input];
             const CHUNK_SIZE = 4;
             let previousContext = whiteboards.slice(0, 2).map(w => w.topic).join(", ");
 
             for (let i = 0; i < topicsToCover.length; i += CHUNK_SIZE) {
                 const chunk = topicsToCover.slice(i, i + CHUNK_SIZE);
-                const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, effectiveMainTopic || (topicOverride || input), addLog);
+                const batchResults = await generateWhiteboardBatch(apiKey, chunk, previousContext, model, effectiveMainTopic || (actualTopicOverride || input), addLog);
                 previousContext = batchResults.map(b => b.topic).join(", ");
 
                 const newWhiteboards: WhiteboardData[] = batchResults.map(item => ({
@@ -71,7 +74,7 @@ export const createGenerationHandlers = (
 
                 setWhiteboards(prev => [...newWhiteboards.reverse(), ...prev]);
             }
-            if (!topicOverride) setInput('');
+            if (!actualTopicOverride) setInput('');
         } catch (error) {
             console.error(error);
             alert("Generation failed.");
